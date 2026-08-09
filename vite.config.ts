@@ -6,6 +6,12 @@ import laravel from 'laravel-vite-plugin';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig } from 'vite';
 
+import fs from 'node:fs';
+
+const phpBinary =
+    process.env.PHP_PATH ||
+    (fs.existsSync('/opt/homebrew/bin/php') ? '/opt/homebrew/bin/php' : 'php');
+
 export default defineConfig({
     plugins: [
         laravel({
@@ -29,7 +35,7 @@ export default defineConfig({
         }),
         wayfinder({
             formVariants: true,
-            command: (process.env.PHP_PATH || '/opt/homebrew/bin/php') + ' artisan wayfinder:generate',
+            command: `${phpBinary} artisan wayfinder:generate`,
         }),
     ],
     server: {
