@@ -2,9 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
-use App\Models\Account;
 use App\Enums\AccountType;
+use App\Enums\TransactionType;
+use App\Models\Account;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -27,20 +28,21 @@ class AccountTest extends TestCase
         $response->assertRedirect('/accounts');
 
         $account = Account::where('user_id', $user->id)->first();
-        
+
         $this->assertNotNull($account);
         $this->assertEquals('Test Bank', $account->name);
         $this->assertEquals(500000, $account->initial_balance);
-        
+
         // The current balance must be exactly 500000, not double counted!
         $this->assertEquals(500000, $account->current_balance);
-        
+
         // It should have exactly one transaction for initial balance
         $this->assertEquals(1, $account->transactions()->count());
-        
-        // The transaction amount should be 500000
+
+        // The transaction amount should be 500000 and type must be ADJUSTMENT
         $transaction = $account->transactions()->first();
         $this->assertEquals(500000, $transaction->amount);
+        $this->assertEquals(TransactionType::ADJUSTMENT, $transaction->type);
         $this->assertEquals('system', $transaction->source->value);
     }
 }
