@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"  @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+@php
+    $isInitialAuthBoot = in_array($page['component'] ?? '', ['auth/Login', 'auth/Register'], true)
+        && empty((array) ($page['props']['errors'] ?? []))
+        && empty($page['props']['status'] ?? null);
+@endphp
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @if($isInitialAuthBoot) data-auth-boot @endif @class(['dark' => ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +21,12 @@
                         document.documentElement.classList.add('dark');
                     }
                 }
+
+                if (document.documentElement.hasAttribute('data-auth-boot')) {
+                    window.setTimeout(function() {
+                        document.documentElement.removeAttribute('data-auth-boot');
+                    }, 1500);
+                }
             })();
         </script>
 
@@ -27,6 +38,15 @@
 
             html.dark {
                 background-color: #0F1117;
+            }
+
+            html[data-auth-boot],
+            html[data-auth-boot] body {
+                background-color: #060b18 !important;
+            }
+
+            html[data-auth-boot] #app {
+                opacity: 0;
             }
         </style>
 
