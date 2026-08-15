@@ -10,8 +10,10 @@ import {
     Pencil,
     Trash2,
 } from '@lucide/vue';
-import { dashboard } from '@/routes';
+import { ref } from 'vue';
+import EmptyState from '@/components/EmptyState.vue';
 import MoneyDisplay from '@/components/MoneyDisplay.vue';
+import { dashboard } from '@/routes';
 
 defineOptions({
     layout: {
@@ -29,10 +31,22 @@ const props = defineProps<{
     totalBalance: number;
 }>();
 
-const deleteAccount = (id: string) => {
-    if (confirm('Are you sure you want to delete this account?')) {
-        router.delete(`/accounts/${id}`);
+const deleteTarget = ref<any | null>(null);
+
+const confirmDelete = (account: any) => {
+    deleteTarget.value = account;
+};
+
+const executeDelete = () => {
+    if (!deleteTarget.value) {
+        return;
     }
+
+    router.delete(`/accounts/${deleteTarget.value.id}`, {
+        onSuccess: () => {
+            deleteTarget.value = null;
+        },
+    });
 };
 
 const getIconForType = (type: string) => {
@@ -125,7 +139,7 @@ const getIconForType = (type: string) => {
                                 <Pencil class="h-4 w-4" />
                             </Link>
                             <button
-                                @click="deleteAccount(account.id)"
+                                @click="confirmDelete(account)"
                                 class="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                                 title="Delete"
                             >
@@ -194,27 +208,47 @@ const getIconForType = (type: string) => {
         </div>
 
         <!-- Empty State -->
-        <div
+        <EmptyState
             v-else
-            class="flex flex-col items-center justify-center rounded-xl border border-dashed p-12 text-center"
+            :icon="Wallet"
+            title="No accounts found"
+            description="You haven't created any financial accounts yet. Add your bank accounts, wallets, or credit cards to start tracking."
+            action-text="Add Your First Account"
+            action-href="/accounts/create"
+        />
+
+        <!-- Confirmation Delete Modal -->
+        <div
+            v-if="deleteTarget"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
         >
             <div
-                class="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-muted"
+                class="w-full max-w-md rounded-xl border bg-card p-6 text-card-foreground shadow-lg"
             >
-                <Wallet class="h-10 w-10 text-muted-foreground" />
+                <h3 class="text-lg font-semibold">Delete Account</h3>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Are you sure you want to delete
+                    <span class="font-bold text-foreground"
+                        >"{{ deleteTarget.name }}"</span
+                    >? This action will soft-delete the account.
+                </p>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button
+                        type="button"
+                        @click="deleteTarget = null"
+                        class="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        @click="executeDelete"
+                        class="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+                    >
+                        Delete
+                    </button>
+                </div>
             </div>
-            <h2 class="mb-2 text-2xl font-semibold">No accounts found</h2>
-            <p class="mb-8 max-w-md text-muted-foreground">
-                You haven't created any financial accounts yet. Add your bank
-                accounts, wallets, or credit cards to start tracking.
-            </p>
-            <Link
-                href="/accounts/create"
-                class="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-            >
-                <PlusCircle class="h-5 w-5" />
-                Add Your First Account
-            </Link>
         </div>
     </div>
 </template>
