@@ -9,8 +9,9 @@ import {
     ArrowRightLeft,
 } from '@lucide/vue';
 import dayjs from 'dayjs';
-import { dashboard } from '@/routes';
 import CategoryPicker from '@/components/CategoryPicker.vue';
+import MoneyInput from '@/components/MoneyInput.vue';
+import { dashboard } from '@/routes';
 
 defineOptions({
     layout: {
@@ -140,21 +141,12 @@ const setType = (newType: string) => {
                         class="mb-4 block text-center text-sm leading-none font-medium text-muted-foreground"
                         >Amount</label
                     >
-                    <div class="relative mx-auto max-w-xs">
-                        <div
-                            class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-2xl font-medium text-muted-foreground"
-                        >
-                            Rp
-                        </div>
-                        <input
-                            id="amount"
-                            v-model="form.amount"
-                            type="number"
-                            class="flex h-16 w-full rounded-md border-0 border-b-2 border-input bg-transparent py-2 pr-3 pl-12 text-center text-4xl font-bold focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="0"
-                            required
-                        />
-                    </div>
+                    <MoneyInput
+                        id="amount"
+                        v-model="form.amount"
+                        size="lg"
+                        required
+                    />
                     <p
                         v-if="form.errors.amount"
                         class="text-center text-sm text-destructive"
@@ -208,14 +200,19 @@ const setType = (newType: string) => {
                         </p>
                     </div>
 
-                    <div v-if="form.type !== 'transfer'" class="space-y-3 md:col-span-2 border-t pt-4">
-                        <label class="text-sm font-medium tracking-wider text-muted-foreground uppercase">
+                    <div
+                        v-if="form.type !== 'transfer'"
+                        class="space-y-3 border-t pt-4 md:col-span-2"
+                    >
+                        <label
+                            class="text-sm font-medium tracking-wider text-muted-foreground uppercase"
+                        >
                             Category
                         </label>
-                        <CategoryPicker 
-                            v-model="form.category_id" 
-                            :categories="categories" 
-                            :type="form.type" 
+                        <CategoryPicker
+                            v-model="form.category_id"
+                            :categories="categories"
+                            :type="form.type"
                         />
                         <p
                             v-if="form.errors.category_id"
