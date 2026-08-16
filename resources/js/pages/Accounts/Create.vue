@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ArrowLeft, Save, Loader2 } from '@lucide/vue';
+import MoneyInput from '@/components/MoneyInput.vue';
 import { dashboard } from '@/routes';
 
 defineOptions({
@@ -165,21 +166,12 @@ const submit = () => {
                             class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                             >Starting Balance (in {{ form.currency }})</label
                         >
-                        <div class="relative">
-                            <div
-                                class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 font-medium text-muted-foreground"
-                            >
-                                Rp
-                            </div>
-                            <input
-                                id="initial_balance"
-                                v-model="form.initial_balance"
-                                type="number"
-                                class="flex h-12 w-full rounded-md border border-input bg-background py-2 pr-3 pl-10 text-lg font-semibold ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                                placeholder="0"
-                                required
-                            />
-                        </div>
+                        <MoneyInput
+                            id="initial_balance"
+                            v-model="form.initial_balance"
+                            :currency="form.currency"
+                            required
+                        />
                         <p class="text-xs text-muted-foreground">
                             The current amount of money in this account right
                             now.
