@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import {
     ArrowUpRight,
@@ -12,6 +11,7 @@ import {
 } from '@lucide/vue';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { computed } from 'vue';
 import MoneyDisplay from '@/components/MoneyDisplay.vue';
 
 dayjs.extend(relativeTime);
@@ -84,7 +84,10 @@ const displayAmount = computed(() => {
 
             <!-- Details -->
             <div class="flex min-w-0 flex-col">
-                <Link :href="`/transactions/${transaction.id}`" class="truncate text-sm font-medium text-foreground hover:underline">
+                <Link
+                    :href="`/transactions/${transaction.id}`"
+                    class="truncate text-sm font-medium text-foreground hover:underline"
+                >
                     {{ transaction.description || 'Untitled Transaction' }}
                 </Link>
                 <div
