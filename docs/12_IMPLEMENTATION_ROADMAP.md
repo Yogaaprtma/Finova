@@ -169,7 +169,7 @@ Phase 15: Deployment ⬜
 
 ---
 
-### Phase 4: Accounts & Basic Transactions ⬜ NEXT
+### Phase 4: Accounts & Basic Transactions ✅ COMPLETED
 
 **Objective**: Build the account management and basic transaction CRUD UI.
 
@@ -200,17 +200,17 @@ Phase 15: Deployment ⬜
 **Database Changes**: None (tables from Phase 3)
 
 **Acceptance Criteria**:
-- [ ] Create account with initial balance (adjustment transaction)
-- [ ] Create income transaction → account balance increases
-- [ ] Create expense transaction → account balance decreases
-- [ ] Create transfer → source decreases, destination increases, no income/expense
-- [ ] Transaction list shows with search and filters
-- [ ] Mobile bottom nav works
-- [ ] Desktop sidebar nav works
+- [x] Create account with initial balance (adjustment transaction)
+- [x] Create income transaction → account balance increases
+- [x] Create expense transaction → account balance decreases
+- [x] Create transfer → source decreases, destination increases, no income/expense
+- [x] Transaction list shows with search and filters
+- [x] Mobile bottom nav works
+- [x] Desktop sidebar nav works
 
 ---
 
-### Phase 5: Categories & Transaction Management
+### Phase 5: Categories & Transaction Management ✅ COMPLETED
 
 **Objective**: Complete the category management system and polish the transaction workflow.
 
@@ -237,16 +237,16 @@ Phase 15: Deployment ⬜
 **Database Changes**: None
 
 **Acceptance Criteria**:
-- [ ] Create/edit/deactivate categories
-- [ ] Subcategories display under parent
-- [ ] Category picker shows icons in grid
-- [ ] Edit transaction reverses old entries and creates new
-- [ ] Delete transaction reverses entries and removes
-- [ ] FAB opens quick add modal on mobile
+- [x] Create/edit/deactivate categories
+- [x] Subcategories display under parent
+- [x] Category picker shows icons in grid
+- [x] Edit transaction reverses old entries and creates new
+- [x] Delete transaction reverses entries and removes
+- [x] FAB opens quick add modal on mobile
 
 ---
 
-### Phase 6: Dashboard
+### Phase 6: Dashboard ✅ COMPLETED
 
 **Objective**: Build the main dashboard with financial overview.
 
@@ -278,12 +278,12 @@ Phase 15: Deployment ⬜
 **Database Changes**: None (net_worth_snapshots table from Phase 3)
 
 **Acceptance Criteria**:
-- [ ] Net worth = sum of accounts + assets - liabilities
-- [ ] Cash flow shows correct monthly income/expense
-- [ ] Recent transactions show latest 10
-- [ ] Dashboard loads in < 1.5 seconds
-- [ ] Net worth snapshot command runs and stores data
-- [ ] Charts render on mobile and desktop
+- [x] Net worth = sum of accounts + assets - liabilities
+- [x] Cash flow shows correct monthly income/expense
+- [x] Recent transactions show latest 10
+- [x] Dashboard loads in < 1.5 seconds
+- [x] Net worth snapshot command runs and stores data
+- [x] Charts render on mobile and desktop
 
 ---
 
