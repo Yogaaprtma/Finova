@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Enums\CategoryType;
 use App\Models\Category;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class DefaultCategorySeeder extends Seeder
 {
