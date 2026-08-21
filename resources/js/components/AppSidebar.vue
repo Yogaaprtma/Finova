@@ -7,6 +7,9 @@ import {
     Wallet,
     ArrowRightLeft,
     Tags,
+    TrendingUp,
+    CreditCard,
+    ChartColumn,
 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -36,9 +39,24 @@ const mainNavItems: NavItem[] = [
         icon: Wallet,
     },
     {
+        title: 'Portfolio',
+        href: '/assets',
+        icon: TrendingUp,
+    },
+    {
+        title: 'Liabilities',
+        href: '/liabilities',
+        icon: CreditCard,
+    },
+    {
         title: 'Transactions',
         href: '/transactions',
         icon: ArrowRightLeft,
+    },
+    {
+        title: 'Reports',
+        href: '/reports',
+        icon: ChartColumn,
     },
     {
         title: 'Categories',
