@@ -5,20 +5,26 @@ import MoneyDisplay from '@/components/MoneyDisplay.vue';
 
 Chart.register(...registerables);
 
-const props = defineProps<{
-    allocation: {
-        labels: string[];
-        values: number[];
-        colors: string[];
-        items: Array<{
-            label: string;
-            value: number;
-            color: string;
-            percentage: number;
-        }>;
-        total: number;
-    };
-}>();
+const props = withDefaults(
+    defineProps<{
+        allocation: {
+            labels: string[];
+            values: number[];
+            colors: string[];
+            items: Array<{
+                label: string;
+                value: number;
+                color: string;
+                percentage: number;
+            }>;
+            total: number;
+        };
+        showLegend?: boolean;
+    }>(),
+    {
+        showLegend: true,
+    },
+);
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 let chartInstance: Chart | null = null;
@@ -105,10 +111,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="flex flex-col items-center justify-between gap-6 sm:flex-row">
+    <div
+        :class="[
+            'flex items-center justify-center',
+            showLegend
+                ? 'flex-col gap-6 sm:flex-row sm:justify-between'
+                : 'w-full',
+        ]"
+    >
         <!-- Donut Canvas with Center Stats -->
         <div
-            class="relative flex h-52 w-52 shrink-0 items-center justify-center"
+            :class="[
+                'relative flex shrink-0 items-center justify-center',
+                showLegend ? 'h-52 w-52' : 'h-60 w-60',
+            ]"
         >
             <canvas ref="canvasRef"></canvas>
             <div
@@ -124,7 +140,10 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Legend Items -->
-        <div class="flex w-full flex-1 flex-col justify-center gap-2.5">
+        <div
+            v-if="showLegend"
+            class="flex w-full flex-1 flex-col justify-center gap-2.5"
+        >
             <div
                 v-if="allocation.items.length === 0"
                 class="py-4 text-center text-sm text-muted-foreground sm:text-left"
