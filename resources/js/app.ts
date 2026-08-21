@@ -31,3 +31,18 @@ initializeTheme();
 
 // This will listen for flash toast data from the server...
 initializeFlashToast();
+
+// Service Worker Registration for PWA
+if (
+    'serviceWorker' in navigator &&
+    (import.meta.env.PROD ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1')
+) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch((err) => {
+            console.warn('SW registration failed:', err);
+        });
+    });
+}
+
