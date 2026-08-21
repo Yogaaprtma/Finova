@@ -10,6 +10,8 @@ const props = withDefaults(
         required?: boolean;
         id?: string;
         size?: 'default' | 'lg';
+        allowDecimal?: boolean;
+        maxDecimals?: number;
     }>(),
     {
         currency: 'IDR',
@@ -18,6 +20,8 @@ const props = withDefaults(
         required: false,
         id: 'amount',
         size: 'default',
+        allowDecimal: false,
+        maxDecimals: 4,
     },
 );
 
@@ -25,9 +29,84 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: number | null): void;
 }>();
 
+const isFocused = ref(false);
+
+const cleanParseDecimal = (
+    val: string | number | null | undefined,
+): number | null => {
+    if (val === null || val === undefined || val === '') {
+        return null;
+    }
+
+    let s = String(val)
+        .trim()
+        .replace(/^[^\d.,+-]+/, '')
+        .trim();
+
+    if (!s) {
+        return null;
+    }
+
+    if (s.includes('.') && s.includes(',')) {
+        const lastDot = s.lastIndexOf('.');
+        const lastComma = s.lastIndexOf(',');
+
+        if (lastDot > lastComma) {
+            // 4,205.63 (Stockbit / US format: comma is thousand, dot is decimal)
+            s = s.replace(/,/g, '');
+        } else {
+            // 4.205,63 (ID / EU format: dot is thousand, comma is decimal)
+            s = s.replace(/\./g, '').replace(',', '.');
+        }
+    } else if (s.includes(',')) {
+        const parts = s.split(',');
+
+        if (parts.length > 2) {
+            s = s.replace(/,/g, '');
+        } else if (
+            parts[1].length === 3 &&
+            parts[0].length <= 3 &&
+            parseInt(parts[0], 10) < 1000
+        ) {
+            s = s.replace(',', '');
+        } else {
+            s = s.replace(',', '.');
+        }
+    } else if (s.includes('.')) {
+        const parts = s.split('.');
+
+        if (parts.length > 2) {
+            s = s.replace(/\./g, '');
+        } else if (
+            parts[1].length === 3 &&
+            parts[0].length <= 3 &&
+            parseInt(parts[0], 10) < 1000
+        ) {
+            s = s.replace('.', '');
+        }
+    }
+
+    const n = parseFloat(s);
+
+    return isNaN(n) ? null : n;
+};
+
 const formatNumber = (val: number | string | null): string => {
     if (val === null || val === undefined || val === '') {
         return '';
+    }
+
+    if (props.allowDecimal) {
+        const num = typeof val === 'number' ? val : cleanParseDecimal(val);
+
+        if (num === null || isNaN(num)) {
+            return '';
+        }
+
+        return new Intl.NumberFormat('id-ID', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: props.maxDecimals,
+        }).format(num);
     }
 
     const num =
@@ -47,6 +126,10 @@ const displayValue = ref(formatNumber(props.modelValue));
 watch(
     () => props.modelValue,
     (newVal) => {
+        if (isFocused.value && props.allowDecimal) {
+            return;
+        }
+
         const formatted = formatNumber(newVal);
 
         if (formatted !== displayValue.value) {
@@ -55,20 +138,47 @@ watch(
     },
 );
 
+const onFocus = () => {
+    isFocused.value = true;
+
+    if (
+        props.allowDecimal &&
+        props.modelValue !== null &&
+        props.modelValue !== undefined
+    ) {
+        displayValue.value = String(props.modelValue);
+    }
+};
+
+const onBlur = () => {
+    isFocused.value = false;
+    displayValue.value = formatNumber(props.modelValue);
+};
+
 const onInput = (event: Event) => {
     const input = event.target as HTMLInputElement;
-    const rawDigits = input.value.replace(/\D/g, '');
 
-    if (!rawDigits) {
-        displayValue.value = '';
-        emit('update:modelValue', null);
+    if (!props.allowDecimal) {
+        const rawDigits = input.value.replace(/\D/g, '');
+
+        if (!rawDigits) {
+            displayValue.value = '';
+            emit('update:modelValue', null);
+
+            return;
+        }
+
+        const numericValue = parseInt(rawDigits, 10);
+        displayValue.value = formatNumber(numericValue);
+        emit('update:modelValue', numericValue);
 
         return;
     }
 
-    const numericValue = parseInt(rawDigits, 10);
-    displayValue.value = formatNumber(numericValue);
-    emit('update:modelValue', numericValue);
+    const raw = input.value;
+    displayValue.value = raw;
+    const num = cleanParseDecimal(raw);
+    emit('update:modelValue', num);
 };
 </script>
 
@@ -84,9 +194,11 @@ const onInput = (event: Event) => {
             <input
                 :id="id"
                 type="text"
-                inputmode="numeric"
+                :inputmode="allowDecimal ? 'decimal' : 'numeric'"
                 :value="displayValue"
                 @input="onInput"
+                @focus="onFocus"
+                @blur="onBlur"
                 :placeholder="placeholder"
                 :disabled="disabled"
                 :required="required"
@@ -104,9 +216,11 @@ const onInput = (event: Event) => {
             <input
                 :id="id"
                 type="text"
-                inputmode="numeric"
+                :inputmode="allowDecimal ? 'decimal' : 'numeric'"
                 :value="displayValue"
                 @input="onInput"
+                @focus="onFocus"
+                @blur="onBlur"
                 :placeholder="placeholder"
                 :disabled="disabled"
                 :required="required"
