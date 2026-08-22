@@ -73,6 +73,22 @@ const user = computed(() => page.props.auth.user);
                 <InputError class="mt-2" :message="errors.email" />
             </div>
 
+            <div class="grid gap-2">
+                <Label for="whatsapp_number">WhatsApp Number</Label>
+                <Input
+                    id="whatsapp_number"
+                    type="tel"
+                    class="mt-1 block w-full"
+                    name="whatsapp_number"
+                    :default-value="user.whatsapp_number"
+                    placeholder="e.g. 081234567890 (Untuk catat transaksi via WhatsApp)"
+                />
+                <InputError class="mt-2" :message="errors.whatsapp_number" />
+                <p class="text-xs text-muted-foreground">
+                    Tautkan nomor WhatsApp aktif untuk mencatat pengeluaran/pemasukan otomatis lewat chat dengan Finova AI bot.
+                </p>
+            </div>
+
             <!-- Financial Settings -->
             <div class="grid gap-2">
                 <Label for="default_currency">Default Currency</Label>
