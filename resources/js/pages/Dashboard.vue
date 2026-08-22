@@ -14,6 +14,7 @@ import {
     Calendar,
 } from '@lucide/vue';
 import dayjs from 'dayjs';
+import AiQuickInput from '@/components/AiQuickInput.vue';
 import AssetAllocationDonutChart from '@/components/AssetAllocationDonutChart.vue';
 import CashFlowBarChart from '@/components/CashFlowBarChart.vue';
 import CategoryIcon from '@/components/CategoryIcon.vue';
@@ -69,6 +70,8 @@ const props = defineProps<{
         total: number;
     };
     recentTransactions: any[];
+    accounts?: Array<{ id: string; name: string; type?: string }>;
+    categories?: Array<{ id: string; name: string; slug?: string; type?: string }>;
     period: string;
 }>();
 
@@ -143,6 +146,9 @@ const getTransactionAccountName = (tx: any) => {
                 </Link>
             </div>
         </div>
+
+        <!-- AI Natural Language Transaction Input -->
+        <AiQuickInput :accounts="props.accounts" :categories="props.categories" />
 
         <!-- 1. Hero: Net Worth Card -->
         <div
@@ -453,10 +459,10 @@ const getTransactionAccountName = (tx: any) => {
                         </p>
                     </div>
                     <Link
-                        href="/accounts"
+                        href="/assets"
                         class="text-xs font-medium text-primary hover:underline"
                     >
-                        Manage Accounts →
+                        Portfolio &amp; Assets →
                     </Link>
                 </div>
 
