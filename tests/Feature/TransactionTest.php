@@ -137,6 +137,37 @@ class TransactionTest extends TestCase
         $this->assertEquals(850000, $this->account->refresh()->current_balance);
     }
 
+    public function test_user_can_create_expense_with_empty_transfer_fields_from_browser(): void
+    {
+        $this->transactionService->createAdjustment([
+            'user_id' => $this->user->id,
+            'account_id' => $this->account->id,
+            'amount' => 1000000,
+            'description' => 'Initial funding',
+        ]);
+
+        // Simulates the exact payload sent by the Vue frontend form
+        $response = $this->actingAs($this->user)->post('/transactions', [
+            'type' => 'expense',
+            'amount' => 50000,
+            'date' => now()->toDateString(),
+            'description' => 'Makan Malam',
+            'account_id' => $this->account->id,
+            'category_id' => $this->expenseCategory->id,
+            'source_account_id' => '',
+            'destination_account_id' => '',
+            'notes' => 'Test makan',
+        ]);
+
+        $response->assertRedirect('/transactions');
+        $this->assertDatabaseHas('transactions', [
+            'user_id' => $this->user->id,
+            'amount' => 50000,
+            'type' => 'expense',
+            'description' => 'Makan Malam',
+        ]);
+    }
+
     public function test_user_can_create_transfer_transaction(): void
     {
         $this->transactionService->createAdjustment([
