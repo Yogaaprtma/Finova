@@ -40,4 +40,3 @@ class PhoneNumberNormalizerTest extends TestCase
         $this->assertFalse(PhoneNumberNormalizer::isValid(''));
     }
 }
-
