@@ -62,4 +62,3 @@ class AmountNormalizerTest extends TestCase
         $this->assertNull(AmountNormalizer::extract(''));
     }
 }
-
