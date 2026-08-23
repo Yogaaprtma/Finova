@@ -12,7 +12,7 @@ class AiParserServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->adapter = new LocalRegexFallbackAdapter();
+        $this->adapter = new LocalRegexFallbackAdapter;
     }
 
     public function test_parses_simple_expense_transaction(): void
@@ -67,4 +67,3 @@ class AiParserServiceTest extends TestCase
         $this->assertTrue($nonFinResult->isLowConfidence());
     }
 }
-
