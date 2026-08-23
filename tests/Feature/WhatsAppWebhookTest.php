@@ -9,6 +9,7 @@ use App\Models\AiParsingLog;
 use App\Models\Category;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Services\Ai\AiParserService;
 use App\Services\Messaging\Contracts\MessagingProviderInterface;
 use App\Services\Messaging\DTOs\IncomingMessage;
 use App\Services\Messaging\DTOs\SendResult;
@@ -21,7 +22,9 @@ class WhatsAppWebhookTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Account $account;
+
     private Category $category;
 
     protected function setUp(): void
@@ -107,19 +110,34 @@ class WhatsAppWebhookTest extends TestCase
 
     public function test_job_notifies_unregistered_whatsapp_sender(): void
     {
-        $mockProvider = new class implements MessagingProviderInterface {
+        $mockProvider = new class implements MessagingProviderInterface
+        {
             public array $sent = [];
 
-            public function getIdentifier(): string { return 'mock'; }
-            public function sendMessage(string $phoneNumber, string $message): SendResult {
+            public function getIdentifier(): string
+            {
+                return 'mock';
+            }
+
+            public function sendMessage(string $phoneNumber, string $message): SendResult
+            {
                 $this->sent[] = ['to' => $phoneNumber, 'message' => $message];
+
                 return new SendResult(true, 'mock-id', 'mock');
             }
-            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult {
+
+            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult
+            {
                 return $this->sendMessage($phoneNumber, $message);
             }
-            public function verifyWebhook(Request $request): bool { return true; }
-            public function parseWebhook(Request $request): IncomingMessage {
+
+            public function verifyWebhook(Request $request): bool
+            {
+                return true;
+            }
+
+            public function parseWebhook(Request $request): IncomingMessage
+            {
                 return new IncomingMessage('1', '628999999999', 'hello', now()->toISOString(), 'mock');
             }
         };
@@ -141,7 +159,7 @@ class WhatsAppWebhookTest extends TestCase
         );
 
         $job = new ProcessWhatsAppMessage($incoming, $event->id);
-        $job->handle(app(\App\Services\Ai\AiParserService::class), $mockProvider);
+        $job->handle(app(AiParserService::class), $mockProvider);
 
         $this->assertCount(1, $mockProvider->sent);
         $this->assertStringContainsString('belum terhubung dengan akun Finova', $mockProvider->sent[0]['message']);
@@ -152,19 +170,34 @@ class WhatsAppWebhookTest extends TestCase
 
     public function test_job_processes_high_confidence_transaction_and_saves_it(): void
     {
-        $mockProvider = new class implements MessagingProviderInterface {
+        $mockProvider = new class implements MessagingProviderInterface
+        {
             public array $sent = [];
 
-            public function getIdentifier(): string { return 'mock'; }
-            public function sendMessage(string $phoneNumber, string $message): SendResult {
+            public function getIdentifier(): string
+            {
+                return 'mock';
+            }
+
+            public function sendMessage(string $phoneNumber, string $message): SendResult
+            {
                 $this->sent[] = ['to' => $phoneNumber, 'message' => $message];
+
                 return new SendResult(true, 'mock-id', 'mock');
             }
-            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult {
+
+            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult
+            {
                 return $this->sendMessage($phoneNumber, $message);
             }
-            public function verifyWebhook(Request $request): bool { return true; }
-            public function parseWebhook(Request $request): IncomingMessage {
+
+            public function verifyWebhook(Request $request): bool
+            {
+                return true;
+            }
+
+            public function parseWebhook(Request $request): IncomingMessage
+            {
                 return new IncomingMessage('1', '6281234567890', 'beli kopi 25rb pake bca', now()->toISOString(), 'mock');
             }
         };
@@ -186,7 +219,7 @@ class WhatsAppWebhookTest extends TestCase
         );
 
         $job = new ProcessWhatsAppMessage($incoming, $event->id);
-        $job->handle(app(\App\Services\Ai\AiParserService::class), $mockProvider);
+        $job->handle(app(AiParserService::class), $mockProvider);
 
         // Assert transaction was created
         $this->assertDatabaseHas('transactions', [
@@ -207,19 +240,34 @@ class WhatsAppWebhookTest extends TestCase
 
     public function test_job_confirms_pending_transaction_on_quick_reply(): void
     {
-        $mockProvider = new class implements MessagingProviderInterface {
+        $mockProvider = new class implements MessagingProviderInterface
+        {
             public array $sent = [];
 
-            public function getIdentifier(): string { return 'mock'; }
-            public function sendMessage(string $phoneNumber, string $message): SendResult {
+            public function getIdentifier(): string
+            {
+                return 'mock';
+            }
+
+            public function sendMessage(string $phoneNumber, string $message): SendResult
+            {
                 $this->sent[] = ['to' => $phoneNumber, 'message' => $message];
+
                 return new SendResult(true, 'mock-id', 'mock');
             }
-            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult {
+
+            public function sendWithButtons(string $phoneNumber, string $message, array $buttons): SendResult
+            {
                 return $this->sendMessage($phoneNumber, $message);
             }
-            public function verifyWebhook(Request $request): bool { return true; }
-            public function parseWebhook(Request $request): IncomingMessage {
+
+            public function verifyWebhook(Request $request): bool
+            {
+                return true;
+            }
+
+            public function parseWebhook(Request $request): IncomingMessage
+            {
                 return new IncomingMessage('1', '6281234567890', 'ya', now()->toISOString(), 'mock');
             }
         };
@@ -259,7 +307,7 @@ class WhatsAppWebhookTest extends TestCase
         );
 
         $job = new ProcessWhatsAppMessage($incoming, $event->id);
-        $job->handle(app(\App\Services\Ai\AiParserService::class), $mockProvider);
+        $job->handle(app(AiParserService::class), $mockProvider);
 
         $this->assertDatabaseHas('transactions', [
             'user_id' => $this->user->id,
@@ -276,4 +324,3 @@ class WhatsAppWebhookTest extends TestCase
         $this->assertStringContainsString('Transaksi Berhasil Dikonfirmasi', $mockProvider->sent[0]['message']);
     }
 }
-
