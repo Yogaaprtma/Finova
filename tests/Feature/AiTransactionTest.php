@@ -15,8 +15,11 @@ class AiTransactionTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Account $account;
+
     private Account $savingsAccount;
+
     private Category $foodCategory;
 
     protected function setUp(): void
@@ -161,4 +164,3 @@ class AiTransactionTest extends TestCase
         ]);
     }
 }
-
