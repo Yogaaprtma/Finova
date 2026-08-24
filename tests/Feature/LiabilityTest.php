@@ -262,4 +262,3 @@ class LiabilityTest extends TestCase
         $this->assertEquals(90000000, $netWorthData['net_worth']);
     }
 }
-
