@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AccountService;
 use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -80,5 +81,60 @@ class DashboardTest extends TestCase
             ->where('period', 'last_month')
             ->where('cashFlow.period', 'last_month')
         );
+    }
+
+    /**
+     * Regression: the dashboard payload is cached. config/cache.php sets
+     * serializable_classes=false, so caching Eloquent models used to come back
+     * as __PHP_Incomplete_Class on the 2nd visit (blank rows, "RpNaN").
+     */
+    public function test_recent_transactions_stay_intact_when_served_from_file_cache(): void
+    {
+        config([
+            'cache.default' => 'file',
+            'cache.stores.file.path' => sys_get_temp_dir().'/finova_dashboard_cache_test',
+        ]);
+        Cache::flush();
+
+        $user = User::factory()->create();
+        $account = Account::create([
+            'user_id' => $user->id,
+            'name' => 'BNI',
+            'type' => AccountType::BANK,
+            'currency' => 'IDR',
+            'initial_balance' => 0,
+            'current_balance' => 0,
+        ]);
+        $category = Category::create([
+            'user_id' => $user->id,
+            'name' => 'Food & Dining',
+            'type' => CategoryType::EXPENSE,
+        ]);
+
+        (new TransactionService(new AccountService))->createExpense([
+            'user_id' => $user->id,
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'amount' => 50000,
+            'date' => now()->toDateString(),
+            'description' => 'Makan Siang Nasi Padang',
+        ]);
+
+        // 1st visit warms the cache, 2nd visit is served from it.
+        foreach ([1, 2] as $visit) {
+            $this->actingAs($user)->get(route('dashboard'))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->component('Dashboard')
+                    ->has('recentTransactions', 1)
+                    ->where('recentTransactions.0.description', 'Makan Siang Nasi Padang')
+                    ->where('recentTransactions.0.amount', 50000)
+                    ->where('recentTransactions.0.type', 'expense')
+                    ->where('recentTransactions.0.category.name', 'Food & Dining')
+                    ->where('recentTransactions.0.entries.0.account.name', 'BNI')
+                );
+        }
+
+        Cache::flush();
     }
 }
