@@ -10,9 +10,9 @@ import {
 } from '@lucide/vue';
 import dayjs from 'dayjs';
 import { computed, ref, reactive } from 'vue';
+import AiQuickInput from '@/components/AiQuickInput.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import TransactionRow from '@/components/TransactionRow.vue';
-import AiQuickInput from '@/components/AiQuickInput.vue';
 
 defineOptions({
     layout: {
@@ -154,7 +154,10 @@ const groupedTransactions = computed(() => {
         </div>
 
         <!-- AI Natural Language Transaction Input -->
-        <AiQuickInput :accounts="props.accounts" :categories="props.categories" />
+        <AiQuickInput
+            :accounts="props.accounts"
+            :categories="props.categories"
+        />
 
         <!-- Filters & Search Toolbar -->
         <div class="flex flex-col gap-3">
