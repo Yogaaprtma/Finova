@@ -48,6 +48,13 @@ const form = useForm({
 });
 
 const submit = () => {
+    if (form.type === 'transfer') {
+        form.account_id = '';
+    } else {
+        form.source_account_id = '';
+        form.destination_account_id = '';
+    }
+
     form.put(`/transactions/${props.transaction.id}`);
 };
 
@@ -81,6 +88,22 @@ const setType = (newType: string) => {
                     Update the details of this transaction.
                 </p>
             </div>
+        </div>
+
+        <!-- General Error Summary Banner -->
+        <div
+            v-if="form.hasErrors"
+            class="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
+        >
+            <p class="font-semibold">Mohon periksa kesalahan berikut:</p>
+            <ul class="mt-1 list-disc space-y-0.5 pl-5">
+                <li
+                    v-for="(errorMsg, fieldName) in form.errors"
+                    :key="fieldName"
+                >
+                    {{ errorMsg }}
+                </li>
+            </ul>
         </div>
 
         <!-- Form Card -->
