@@ -563,7 +563,9 @@ const formatDate = (dateStr: string) => {
                                 lembar
                             </p>
                             <p
-                                v-if="asset.type === 'stock' && buyForm.quantity"
+                                v-if="
+                                    asset.type === 'stock' && buyForm.quantity
+                                "
                                 class="text-[10px] text-muted-foreground"
                             >
                                 =
@@ -713,7 +715,9 @@ const formatDate = (dateStr: string) => {
                                 lembar
                             </p>
                             <p
-                                v-if="asset.type === 'stock' && sellForm.quantity"
+                                v-if="
+                                    asset.type === 'stock' && sellForm.quantity
+                                "
                                 class="text-[10px] text-muted-foreground"
                             >
                                 =
