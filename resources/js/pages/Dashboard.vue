@@ -1,23 +1,19 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
-    TrendingUp,
-    TrendingDown,
-    Wallet,
-    CreditCard,
-    ArrowUpRight,
-    ArrowDownRight,
-    PlusCircle,
     ArrowRight,
-    PiggyBank,
-    Building2,
     Calendar,
+    Plus,
+    TrendingDown,
+    TrendingUp,
 } from '@lucide/vue';
 import dayjs from 'dayjs';
+import { computed } from 'vue';
 import AiQuickInput from '@/components/AiQuickInput.vue';
 import AssetAllocationDonutChart from '@/components/AssetAllocationDonutChart.vue';
 import CashFlowBarChart from '@/components/CashFlowBarChart.vue';
 import CategoryIcon from '@/components/CategoryIcon.vue';
+import BudgetSummaryCard from '@/components/Dashboard/BudgetSummaryCard.vue';
 import EmptyState from '@/components/EmptyState.vue';
 import MoneyDisplay from '@/components/MoneyDisplay.vue';
 
@@ -69,11 +65,32 @@ const props = defineProps<{
         }>;
         total: number;
     };
-    recentTransactions: any[];
+    budgetSummary?: any;
+    recentTransactions?: any;
     accounts?: Array<{ id: string; name: string; type?: string }>;
-    categories?: Array<{ id: string; name: string; slug?: string; type?: string }>;
+    categories?: Array<{
+        id: string;
+        name: string;
+        slug?: string;
+        type?: string;
+    }>;
     period: string;
 }>();
+
+const normalizedRecentTransactions = computed<any[]>(() => {
+    if (Array.isArray(props.recentTransactions)) {
+        return props.recentTransactions;
+    }
+
+    if (
+        props.recentTransactions &&
+        typeof props.recentTransactions === 'object'
+    ) {
+        return Object.values(props.recentTransactions);
+    }
+
+    return [];
+});
 
 const switchPeriod = (newPeriod: 'this_month' | 'last_month') => {
     if (newPeriod === props.period) {
@@ -114,220 +131,133 @@ const getTransactionAccountName = (tx: any) => {
     <Head title="Financial Dashboard" />
 
     <div
-        class="mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
+        class="mx-auto flex h-full w-full max-w-7xl flex-1 flex-col gap-5 p-4 md:p-6 lg:p-8"
     >
         <!-- Header & Quick Actions -->
         <div
-            class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
+            class="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center"
         >
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight">
-                    Financial Overview
-                </h1>
-                <p class="mt-1 text-sm text-muted-foreground">
-                    Monitor your net worth, cash flow, and asset distribution in
-                    real-time.
-                </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2.5">
+            <h1 class="text-2xl font-semibold tracking-tight">
+                Financial Overview
+            </h1>
+            <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                 <Link
                     href="/transactions/create"
-                    class="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                    class="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
                 >
-                    <PlusCircle class="h-4 w-4" />
+                    <Plus class="size-4" aria-hidden="true" />
                     Record Transaction
                 </Link>
                 <Link
                     href="/accounts/create"
-                    class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]"
                 >
-                    <Wallet class="h-4 w-4 text-muted-foreground" />
                     Add Account
                 </Link>
             </div>
         </div>
 
-        <!-- AI Natural Language Transaction Input -->
-        <AiQuickInput :accounts="props.accounts" :categories="props.categories" />
+        <!-- Quick text input -->
+        <AiQuickInput
+            :accounts="props.accounts"
+            :categories="props.categories"
+        />
 
-        <!-- 1. Hero: Net Worth Card -->
-        <div
-            class="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-card via-card to-primary/5 p-6 text-card-foreground shadow-sm md:p-8"
+        <!-- 1. Net worth -->
+        <section
+            aria-label="Net worth"
+            class="rounded-xl bg-brand-600 p-5 text-white sm:p-6"
         >
-            <div
-                class="pointer-events-none absolute -top-16 -right-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
-            ></div>
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <h2 class="text-sm font-medium text-white/75">Net Worth</h2>
+                <span
+                    v-if="netWorth.change_percentage !== 0"
+                    class="inline-flex items-center gap-1 text-xs font-medium text-white/90 tabular-nums"
+                >
+                    <component
+                        :is="
+                            netWorth.is_positive_change
+                                ? TrendingUp
+                                : TrendingDown
+                        "
+                        class="size-3.5"
+                        aria-hidden="true"
+                    />
+                    {{ netWorth.is_positive_change ? '+' : ''
+                    }}{{ netWorth.change_percentage }}% vs last month
+                </span>
+            </div>
 
-            <div
-                class="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-end"
+            <p
+                class="mt-1 text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl"
             >
-                <div class="space-y-2">
-                    <div class="flex items-center gap-2">
-                        <span
-                            class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-                        >
-                            Total Net Worth
-                        </span>
-                        <!-- Change badge -->
-                        <span
-                            v-if="netWorth.change_percentage !== 0"
-                            :class="[
-                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                                netWorth.is_positive_change
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-                            ]"
-                        >
-                            <component
-                                :is="
-                                    netWorth.is_positive_change
-                                        ? TrendingUp
-                                        : TrendingDown
-                                "
-                                class="h-3 w-3"
-                            />
-                            {{ netWorth.is_positive_change ? '+' : ''
-                            }}{{ netWorth.change_percentage }}% vs last month
-                        </span>
-                    </div>
+                <MoneyDisplay :amount="netWorth.net_worth" />
+            </p>
 
-                    <h2
-                        class="text-4xl font-extrabold tracking-tight sm:text-5xl"
+            <dl
+                class="mt-5 grid grid-cols-3 divide-x divide-white/20 border-t border-white/20 pt-4"
+            >
+                <div class="min-w-0 pr-3">
+                    <dt class="text-xs text-white/70">Cash &amp; Bank</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-base"
                     >
-                        <MoneyDisplay :amount="netWorth.net_worth" />
-                    </h2>
+                        <MoneyDisplay :amount="netWorth.total_cash" />
+                    </dd>
                 </div>
-
-                <!-- Breakdown Pills -->
-                <div
-                    class="grid grid-cols-3 gap-3 border-t pt-4 sm:flex sm:items-center sm:gap-6 md:border-t-0 md:pt-0"
-                >
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Liquid Cash
-                        </p>
-                        <p class="mt-1 text-sm font-bold text-foreground">
-                            <MoneyDisplay :amount="netWorth.total_cash" />
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Investments
-                        </p>
-                        <p class="mt-1 text-sm font-bold text-foreground">
-                            <MoneyDisplay
-                                :amount="netWorth.total_investments"
-                            />
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Liabilities
-                        </p>
-                        <p
-                            class="mt-1 text-sm font-bold text-rose-600 dark:text-rose-400"
-                        >
-                            <MoneyDisplay
-                                :amount="netWorth.total_liabilities"
-                            />
-                        </p>
-                    </div>
+                <div class="min-w-0 px-3 sm:px-5">
+                    <dt class="text-xs text-white/70">Investments</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-base"
+                    >
+                        <MoneyDisplay :amount="netWorth.total_investments" />
+                    </dd>
                 </div>
-            </div>
-        </div>
-
-        <!-- 2. Quick Stats Row -->
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <!-- Total Assets -->
-            <div
-                class="flex items-center justify-between rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
-            >
-                <div>
-                    <p class="text-xs font-medium text-muted-foreground">
-                        Total Assets
-                    </p>
-                    <p class="mt-1 text-2xl font-bold tracking-tight">
-                        <MoneyDisplay :amount="netWorth.total_assets" />
-                    </p>
-                </div>
-                <div
-                    class="rounded-xl bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"
-                >
-                    <TrendingUp class="h-5 w-5" />
-                </div>
-            </div>
-
-            <!-- Total Liabilities -->
-            <div
-                class="flex items-center justify-between rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
-            >
-                <div>
-                    <p class="text-xs font-medium text-muted-foreground">
-                        Total Liabilities
-                    </p>
-                    <p
-                        class="mt-1 text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400"
+                <div class="min-w-0 pl-3 sm:pl-5">
+                    <dt class="text-xs text-white/70">Liabilities</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-base"
                     >
                         <MoneyDisplay :amount="netWorth.total_liabilities" />
-                    </p>
+                    </dd>
                 </div>
-                <div
-                    class="rounded-xl bg-rose-500/10 p-3 text-rose-600 dark:text-rose-400"
-                >
-                    <CreditCard class="h-5 w-5" />
-                </div>
-            </div>
+            </dl>
+        </section>
 
-            <!-- Savings Rate -->
-            <div
-                class="flex items-center justify-between rounded-xl border bg-card p-5 text-card-foreground shadow-sm sm:col-span-2 lg:col-span-1"
-            >
-                <div>
-                    <p class="text-xs font-medium text-muted-foreground">
-                        Savings Rate ({{ cashFlow.period_label }})
-                    </p>
-                    <div class="mt-1 flex items-baseline gap-2">
-                        <span class="text-2xl font-bold tracking-tight"
-                            >{{ cashFlow.savings_rate }}%</span
-                        >
-                        <span class="text-xs text-muted-foreground"
-                            >of income saved</span
-                        >
-                    </div>
-                </div>
-                <div class="rounded-xl bg-primary/10 p-3 text-primary">
-                    <PiggyBank class="h-5 w-5" />
-                </div>
-            </div>
-        </div>
+        <!-- Budget summary -->
+        <BudgetSummaryCard :budget-summary="props.budgetSummary" />
 
-        <!-- 3. Monthly Cash Flow with Bar Chart -->
-        <div
-            class="rounded-xl border bg-card p-6 text-card-foreground shadow-sm"
+        <!-- 3. Cash flow -->
+        <section
+            aria-labelledby="cash-flow-title"
+            class="rounded-xl border bg-card p-4 sm:p-6"
         >
             <div
-                class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
+                class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
             >
-                <div>
-                    <h3 class="text-lg font-semibold tracking-tight">
-                        Cash Flow Overview
-                    </h3>
-                    <p class="text-xs text-muted-foreground">
-                        Comparing income, expenses, and net savings over time.
-                    </p>
-                </div>
+                <h2
+                    id="cash-flow-title"
+                    class="text-base font-semibold tracking-tight"
+                >
+                    Cash Flow
+                    <span class="font-normal text-muted-foreground">
+                        · {{ cashFlow.period_label }}
+                    </span>
+                </h2>
 
-                <!-- Period Selector -->
                 <div
-                    class="flex items-center rounded-lg border bg-muted/50 p-1 text-xs"
+                    role="group"
+                    aria-label="Period"
+                    class="flex w-full items-center rounded-lg bg-muted p-0.5 text-xs sm:w-auto"
                 >
                     <button
                         type="button"
                         @click="switchPeriod('this_month')"
+                        :aria-pressed="period === 'this_month'"
                         :class="[
-                            'rounded-md px-3 py-1.5 font-medium transition-all',
+                            'h-8 flex-1 rounded-md px-3 font-medium transition-colors sm:flex-none',
                             period === 'this_month'
-                                ? 'bg-background text-foreground shadow-sm'
+                                ? 'bg-background text-foreground shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground',
                         ]"
                     >
@@ -336,10 +266,11 @@ const getTransactionAccountName = (tx: any) => {
                     <button
                         type="button"
                         @click="switchPeriod('last_month')"
+                        :aria-pressed="period === 'last_month'"
                         :class="[
-                            'rounded-md px-3 py-1.5 font-medium transition-all',
+                            'h-8 flex-1 rounded-md px-3 font-medium transition-colors sm:flex-none',
                             period === 'last_month'
-                                ? 'bg-background text-foreground shadow-sm'
+                                ? 'bg-background text-foreground shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground',
                         ]"
                     >
@@ -348,171 +279,124 @@ const getTransactionAccountName = (tx: any) => {
                 </div>
             </div>
 
-            <!-- Cash Flow KPI Stats Row -->
-            <div
-                class="mb-6 grid grid-cols-1 gap-4 rounded-xl border bg-muted/20 p-4 sm:grid-cols-3"
+            <dl
+                class="mb-5 grid grid-cols-2 divide-x divide-y rounded-lg border sm:grid-cols-4 sm:divide-y-0"
             >
-                <div class="flex items-center gap-3">
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                <div class="min-w-0 px-3 py-3 sm:px-4">
+                    <dt class="text-xs text-muted-foreground">Income</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-lg"
+                        :class="
+                            cashFlow.income > 0
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : ''
+                        "
                     >
-                        <ArrowUpRight class="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Total Income
-                        </p>
-                        <p
-                            class="text-lg font-bold text-emerald-600 dark:text-emerald-400"
-                        >
-                            <MoneyDisplay :amount="cashFlow.income" />
-                        </p>
-                    </div>
+                        <MoneyDisplay :amount="cashFlow.income" />
+                    </dd>
                 </div>
-
-                <div
-                    class="flex items-center gap-3 border-t pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4"
-                >
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                <div class="min-w-0 px-3 py-3 sm:px-4">
+                    <dt class="text-xs text-muted-foreground">Expenses</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-lg"
                     >
-                        <ArrowDownRight class="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Total Expenses
-                        </p>
-                        <p
-                            class="text-lg font-bold text-rose-600 dark:text-rose-400"
-                        >
-                            <MoneyDisplay :amount="cashFlow.expense" />
-                        </p>
-                    </div>
+                        <MoneyDisplay :amount="cashFlow.expense" />
+                    </dd>
                 </div>
-
-                <div
-                    class="flex items-center gap-3 border-t pt-3 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-4"
-                >
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                <div class="min-w-0 px-3 py-3 sm:px-4">
+                    <dt class="text-xs text-muted-foreground">Net</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-lg"
+                        :class="
+                            cashFlow.net > 0
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : cashFlow.net < 0
+                                  ? 'text-rose-600 dark:text-rose-400'
+                                  : ''
+                        "
                     >
-                        <Wallet class="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p class="text-xs font-medium text-muted-foreground">
-                            Net Cash Flow
-                        </p>
-                        <p
-                            class="text-lg font-bold"
-                            :class="
-                                cashFlow.net >= 0
-                                    ? 'text-emerald-600 dark:text-emerald-400'
-                                    : 'text-rose-600 dark:text-rose-400'
-                            "
-                        >
-                            <MoneyDisplay :amount="cashFlow.net" />
-                        </p>
-                    </div>
+                        <MoneyDisplay :amount="cashFlow.net" />
+                    </dd>
                 </div>
-            </div>
-
-            <!-- Savings Progress Indicator -->
-            <div class="mb-6 space-y-1.5">
-                <div class="flex justify-between text-xs text-muted-foreground">
-                    <span>Monthly Savings Target</span>
-                    <span class="font-semibold text-foreground"
-                        >{{ cashFlow.savings_rate }}% Saved</span
+                <div class="min-w-0 px-3 py-3 sm:px-4">
+                    <dt class="text-xs text-muted-foreground">Savings Rate</dt>
+                    <dd
+                        class="mt-0.5 text-sm font-semibold tabular-nums sm:text-lg"
                     >
+                        {{ cashFlow.savings_rate }}%
+                    </dd>
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                        class="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                        :style="{
-                            width: `${Math.min(100, Math.max(0, cashFlow.savings_rate))}%`,
-                        }"
-                    ></div>
-                </div>
-            </div>
+            </dl>
 
-            <!-- Chart -->
-            <div class="mt-4">
-                <p class="mb-2 text-xs font-medium text-muted-foreground">
-                    6-Month Trend (Income vs Expense)
-                </p>
-                <CashFlowBarChart :chart-data="cashFlow.chart" />
-            </div>
-        </div>
+            <CashFlowBarChart :chart-data="cashFlow.chart" />
+        </section>
 
-        <!-- 4. Asset Allocation & Recent Transactions Grid -->
-        <div class="grid gap-6 lg:grid-cols-2">
-            <!-- Left: Asset Allocation Card -->
-            <div
-                class="flex flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-sm"
+        <!-- 4. Asset allocation & recent transactions -->
+        <div class="grid gap-5 lg:grid-cols-2">
+            <section
+                aria-labelledby="allocation-title"
+                class="flex flex-col rounded-xl border bg-card p-4 sm:p-6"
             >
-                <div class="mb-6 flex items-center justify-between">
-                    <div>
-                        <h3 class="text-lg font-semibold tracking-tight">
-                            Asset Allocation
-                        </h3>
-                        <p class="text-xs text-muted-foreground">
-                            Distribution across cash and investment classes.
-                        </p>
-                    </div>
+                <div class="mb-5 flex items-center justify-between gap-3">
+                    <h2
+                        id="allocation-title"
+                        class="text-base font-semibold tracking-tight"
+                    >
+                        Asset Allocation
+                    </h2>
                     <Link
                         href="/assets"
-                        class="text-xs font-medium text-primary hover:underline"
+                        class="-mr-2 inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
                     >
-                        Portfolio &amp; Assets →
+                        Portfolio
+                        <ArrowRight class="size-4" aria-hidden="true" />
                     </Link>
                 </div>
 
                 <div class="my-auto">
                     <AssetAllocationDonutChart :allocation="assetAllocation" />
                 </div>
-            </div>
+            </section>
 
-            <!-- Right: Recent Transactions Card -->
-            <div
-                class="flex flex-col rounded-xl border bg-card p-6 text-card-foreground shadow-sm"
+            <section
+                aria-labelledby="recent-title"
+                class="flex flex-col rounded-xl border bg-card p-4 sm:p-6"
             >
-                <div class="mb-4 flex items-center justify-between">
-                    <div>
-                        <h3 class="text-lg font-semibold tracking-tight">
-                            Recent Transactions
-                        </h3>
-                        <p class="text-xs text-muted-foreground">
-                            Latest financial activities across all accounts.
-                        </p>
-                    </div>
+                <div class="mb-3 flex items-center justify-between gap-3">
+                    <h2
+                        id="recent-title"
+                        class="text-base font-semibold tracking-tight"
+                    >
+                        Recent Transactions
+                    </h2>
                     <Link
                         href="/transactions"
-                        class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        class="-mr-2 inline-flex h-8 items-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
                     >
-                        View All
-                        <ArrowRight class="h-3.5 w-3.5" />
+                        View all
+                        <ArrowRight class="size-4" aria-hidden="true" />
                     </Link>
                 </div>
 
-                <!-- Transaction List -->
-                <div
-                    v-if="recentTransactions.length > 0"
+                <ul
+                    v-if="normalizedRecentTransactions.length > 0"
                     class="divide-y divide-border"
                 >
-                    <div
-                        v-for="tx in recentTransactions"
+                    <li
+                        v-for="tx in normalizedRecentTransactions"
                         :key="tx.id"
-                        class="flex items-center justify-between rounded-lg px-2 py-3 transition-colors hover:bg-muted/40"
+                        class="flex items-center justify-between gap-4 py-3"
                     >
                         <div class="flex min-w-0 items-center gap-3">
-                            <!-- Category / Type Icon -->
                             <div
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                                class="flex size-10 shrink-0 items-center justify-center rounded-xl"
                                 :style="{
                                     backgroundColor:
                                         (tx.category?.color || '#3b82f6') +
                                         '20',
                                     color: tx.category?.color || '#3b82f6',
                                 }"
+                                aria-hidden="true"
                             >
                                 <CategoryIcon
                                     :icon="
@@ -521,37 +405,32 @@ const getTransactionAccountName = (tx: any) => {
                                             ? 'arrow-right-left'
                                             : 'banknote')
                                     "
-                                    class="h-5 w-5"
+                                    class="size-5"
                                 />
                             </div>
 
                             <div class="min-w-0">
                                 <Link
                                     :href="`/transactions/${tx.id}`"
-                                    class="block truncate text-sm font-semibold hover:underline"
+                                    class="block truncate text-sm font-medium hover:underline"
                                 >
                                     {{ tx.description }}
                                 </Link>
                                 <p
                                     class="truncate text-xs text-muted-foreground"
                                 >
-                                    {{ tx.category?.name || 'Uncategorized' }} •
-                                    {{ getTransactionAccountName(tx) }}
+                                    {{ tx.category?.name || 'Uncategorized' }}
+                                    · {{ getTransactionAccountName(tx) }}
                                 </p>
                             </div>
                         </div>
 
-                        <div class="ml-4 shrink-0 text-right">
+                        <div class="shrink-0 text-right tabular-nums">
                             <p
-                                class="text-sm font-bold"
+                                class="text-sm font-semibold"
                                 :class="{
                                     'text-emerald-600 dark:text-emerald-400':
                                         tx.type === 'income',
-                                    'text-rose-600 dark:text-rose-400':
-                                        tx.type === 'expense',
-                                    'text-foreground':
-                                        tx.type === 'transfer' ||
-                                        tx.type === 'adjustment',
                                 }"
                             >
                                 <span v-if="tx.type === 'income'">+</span>
@@ -562,10 +441,9 @@ const getTransactionAccountName = (tx: any) => {
                                 {{ formatDate(tx.date) }}
                             </p>
                         </div>
-                    </div>
-                </div>
+                    </li>
+                </ul>
 
-                <!-- Empty State -->
                 <div v-else class="my-auto py-8">
                     <EmptyState
                         :icon="Calendar"
@@ -575,7 +453,7 @@ const getTransactionAccountName = (tx: any) => {
                         action-href="/transactions/create"
                     />
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 </template>
