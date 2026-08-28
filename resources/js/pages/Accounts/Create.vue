@@ -43,18 +43,20 @@ const submit = () => {
         class="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col gap-6 overflow-x-auto p-4 md:p-6 lg:p-8"
     >
         <!-- Header -->
-        <div class="mb-2 flex items-center gap-4">
+        <div class="mb-2 flex items-center gap-3 sm:gap-4">
             <Link
                 href="/accounts"
-                class="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
                 <ArrowLeft class="h-5 w-5" />
             </Link>
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight">
+            <div class="min-w-0">
+                <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">
                     Create Account
                 </h1>
-                <p class="mt-1 text-muted-foreground">
+                <p
+                    class="mt-1 text-sm text-balance text-muted-foreground sm:text-base"
+                >
                     Add a new financial account to track your money.
                 </p>
             </div>
