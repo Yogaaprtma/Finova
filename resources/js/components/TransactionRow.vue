@@ -5,7 +5,6 @@ import {
     ArrowDownRight,
     ArrowRightLeft,
     CircleDollarSign,
-    MoreVertical,
     Pencil,
     Trash2,
 } from '@lucide/vue';
@@ -67,46 +66,53 @@ const displayAmount = computed(() => {
 
 <template>
     <div
-        class="group flex items-center justify-between border-b px-4 py-4 transition-colors last:border-0 hover:bg-muted/50 sm:px-6"
+        class="group flex items-center justify-between gap-3 border-b px-4 py-3.5 transition-colors last:border-0 hover:bg-muted/40 sm:px-6 sm:py-4"
     >
-        <div class="flex min-w-0 items-center gap-4">
+        <div class="flex min-w-0 items-center gap-3 sm:gap-4">
             <!-- Icon -->
             <div
                 :class="[
-                    'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full',
-                    { 'bg-emerald-500/10 text-emerald-500': isIncome },
-                    { 'bg-red-500/10 text-red-500': isExpense },
-                    { 'bg-blue-500/10 text-blue-500': isTransfer },
+                    'flex size-10 shrink-0 items-center justify-center rounded-xl',
+                    {
+                        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400':
+                            isIncome,
+                    },
+                    {
+                        'bg-rose-500/10 text-rose-600 dark:text-rose-400':
+                            isExpense,
+                    },
+                    {
+                        'bg-blue-500/10 text-blue-600 dark:text-blue-400':
+                            isTransfer,
+                    },
                 ]"
             >
-                <component :is="getIcon()" class="h-5 w-5" />
+                <component :is="getIcon()" class="size-5" />
             </div>
 
             <!-- Details -->
-            <div class="flex min-w-0 flex-col">
+            <div class="min-w-0">
                 <Link
                     :href="`/transactions/${transaction.id}`"
-                    class="truncate text-sm font-medium text-foreground hover:underline"
+                    class="block truncate text-sm font-medium text-foreground hover:underline"
                 >
                     {{ transaction.description || 'Untitled Transaction' }}
                 </Link>
-                <div
-                    class="flex items-center gap-2 text-xs text-muted-foreground"
-                >
+                <p class="truncate text-xs text-muted-foreground">
                     <span v-if="transaction.category">{{
                         transaction.category.name
                     }}</span>
                     <span v-else class="italic">Uncategorized</span>
-                    <span>&bull;</span>
+                    <span> &bull; </span>
                     <span>{{ formattedDate }}</span>
-                </div>
+                </p>
             </div>
         </div>
 
         <!-- Amount & Actions -->
-        <div class="flex items-center gap-4">
-            <div class="text-right">
-                <span class="block text-sm font-bold">
+        <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+            <div class="text-right tabular-nums">
+                <span class="block text-sm font-semibold">
                     <MoneyDisplay
                         :amount="displayAmount"
                         :currency="transaction.currency"
@@ -115,21 +121,25 @@ const displayAmount = computed(() => {
                 </span>
             </div>
 
-            <!-- Mobile Actions (Dropdown) - Desktop (Inline) -->
+            <!-- Actions: hidden on mobile, visible on desktop hover -->
             <div
-                class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                class="hidden items-center gap-0.5 sm:flex sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
             >
                 <button
+                    type="button"
                     @click="emit('edit', transaction)"
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label="Edit transaction"
+                    class="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
-                    <Pencil class="h-4 w-4" />
+                    <Pencil class="size-4" />
                 </button>
                 <button
+                    type="button"
                     @click="emit('delete', transaction)"
-                    class="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                    aria-label="Delete transaction"
+                    class="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                 >
-                    <Trash2 class="h-4 w-4" />
+                    <Trash2 class="size-4" />
                 </button>
             </div>
         </div>
