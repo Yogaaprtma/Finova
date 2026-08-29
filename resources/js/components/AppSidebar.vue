@@ -10,6 +10,8 @@ import {
     TrendingUp,
     CreditCard,
     ChartColumn,
+    PiggyBank,
+    Repeat,
 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -34,32 +36,42 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
-        title: 'Accounts',
+        title: 'Rekening',
         href: '/accounts',
         icon: Wallet,
     },
     {
-        title: 'Portfolio',
+        title: 'Aset & Investasi',
         href: '/assets',
         icon: TrendingUp,
     },
     {
-        title: 'Liabilities',
+        title: 'Utang',
         href: '/liabilities',
         icon: CreditCard,
     },
     {
-        title: 'Transactions',
+        title: 'Transaksi',
         href: '/transactions',
         icon: ArrowRightLeft,
     },
     {
-        title: 'Reports',
+        title: 'Anggaran',
+        href: '/budgets',
+        icon: PiggyBank,
+    },
+    {
+        title: 'Transaksi Berulang',
+        href: '/recurring-transactions',
+        icon: Repeat,
+    },
+    {
+        title: 'Laporan',
         href: '/reports',
         icon: ChartColumn,
     },
     {
-        title: 'Categories',
+        title: 'Kategori',
         href: '/categories',
         icon: Tags,
     },
@@ -67,12 +79,12 @@ const mainNavItems: NavItem[] = [
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
+        title: 'Repositori',
         href: 'https://github.com/laravel/vue-starter-kit',
         icon: FolderGit2,
     },
     {
-        title: 'Documentation',
+        title: 'Panduan',
         href: 'https://laravel.com/docs/starter-kits#vue',
         icon: BookOpen,
     },
