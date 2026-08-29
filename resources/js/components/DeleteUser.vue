@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
+import { Loader2 } from '@lucide/vue';
 import { useTemplateRef } from 'vue';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import PasswordInput from '@/components/PasswordInput.vue';
 import { Button } from '@/components/ui/button';
@@ -22,28 +22,35 @@ const passwordInput = useTemplateRef('passwordInput');
 </script>
 
 <template>
-    <div class="space-y-6">
-        <Heading
-            variant="small"
-            title="Delete account"
-            description="Delete your account and all of its resources"
-        />
+    <section
+        class="rounded-xl border border-destructive/30 bg-card text-card-foreground"
+    >
         <div
-            class="space-y-4 rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-200/10 dark:bg-red-700/10"
+            class="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6"
         >
-            <div class="relative space-y-0.5 text-red-600 dark:text-red-100">
-                <p class="font-medium">Warning</p>
-                <p class="text-sm">
-                    Please proceed with caution, this cannot be undone.
+            <div class="min-w-0">
+                <h3 class="text-base font-semibold tracking-tight">
+                    Delete account
+                </h3>
+                <p class="mt-1 text-sm text-muted-foreground sm:max-w-md">
+                    Permanently delete your account and all financial records,
+                    including transactions, accounts, and budgets. This can’t
+                    be undone.
                 </p>
             </div>
+
             <Dialog>
                 <DialogTrigger as-child>
-                    <Button variant="destructive" data-test="delete-user-button"
-                        >Delete account</Button
+                    <Button
+                        variant="destructive"
+                        class="h-11 w-full shrink-0 text-sm font-medium sm:h-10 sm:w-auto"
+                        data-test="delete-user-button"
                     >
+                        Delete account
+                    </Button>
                 </DialogTrigger>
-                <DialogContent>
+
+                <DialogContent class="sm:max-w-md">
                     <Form
                         v-bind="ProfileController.destroy.form()"
                         reset-on-success
@@ -51,40 +58,45 @@ const passwordInput = useTemplateRef('passwordInput');
                         :options="{
                             preserveScroll: true,
                         }"
-                        class="space-y-6"
+                        class="space-y-5"
                         v-slot="{ errors, processing, reset, clearErrors }"
                     >
-                        <DialogHeader class="space-y-3">
-                            <DialogTitle
-                                >Are you sure you want to delete your
-                                account?</DialogTitle
+                        <DialogHeader class="space-y-2">
+                            <DialogTitle class="text-lg font-semibold">
+                                Delete your account?
+                            </DialogTitle>
+                            <DialogDescription
+                                class="text-sm text-muted-foreground"
                             >
-                            <DialogDescription>
-                                Once your account is deleted, all of its
-                                resources and data will also be permanently
-                                deleted. Please enter your password to confirm
-                                you would like to permanently delete your
-                                account.
+                                All of your financial records and data will be
+                                permanently deleted. Enter your password to
+                                confirm.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div class="grid gap-2">
-                            <Label for="password" class="sr-only"
-                                >Password</Label
-                            >
+                        <div class="space-y-2">
+                            <Label for="password" class="text-sm font-medium">
+                                Password
+                            </Label>
                             <PasswordInput
                                 id="password"
                                 name="password"
                                 ref="passwordInput"
-                                placeholder="Password"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                class="h-11 text-base md:h-10 md:text-sm"
                             />
                             <InputError :message="errors.password" />
                         </div>
 
-                        <DialogFooter class="gap-2">
+                        <DialogFooter
+                            class="flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+                        >
                             <DialogClose as-child>
                                 <Button
-                                    variant="secondary"
+                                    type="button"
+                                    variant="outline"
+                                    class="h-11 w-full text-sm sm:h-10 sm:w-auto"
                                     @click="
                                         () => {
                                             clearErrors();
@@ -99,9 +111,14 @@ const passwordInput = useTemplateRef('passwordInput');
                             <Button
                                 type="submit"
                                 variant="destructive"
+                                class="h-11 w-full gap-2 text-sm sm:h-10 sm:w-auto"
                                 :disabled="processing"
                                 data-test="confirm-delete-user-button"
                             >
+                                <Loader2
+                                    v-if="processing"
+                                    class="size-4 animate-spin"
+                                />
                                 Delete account
                             </Button>
                         </DialogFooter>
@@ -109,5 +126,5 @@ const passwordInput = useTemplateRef('passwordInput');
                 </DialogContent>
             </Dialog>
         </div>
-    </div>
+    </section>
 </template>
