@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
 
-const name = usePage().props.name;
+const page = usePage();
+const name = computed(() => page.props.name || 'Finova');
 </script>
 
 <template>
