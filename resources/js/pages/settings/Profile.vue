@@ -77,6 +77,70 @@ const user = computed(() => page.props.auth.user);
                 <InputError class="mt-2" :message="errors.email" />
             </div>
 
+            <!-- Financial Settings -->
+            <div class="grid gap-2">
+                <Label for="default_currency">Default Currency</Label>
+                <select
+                    id="default_currency"
+                    name="default_currency"
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 mt-1 block"
+                    required
+                >
+                    <option value="IDR" :selected="user.default_currency === 'IDR'">IDR - Indonesian Rupiah</option>
+                    <option value="USD" :selected="user.default_currency === 'USD'">USD - US Dollar</option>
+                    <option value="EUR" :selected="user.default_currency === 'EUR'">EUR - Euro</option>
+                    <option value="SGD" :selected="user.default_currency === 'SGD'">SGD - Singapore Dollar</option>
+                </select>
+                <InputError class="mt-2" :message="errors.default_currency" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="timezone">Timezone</Label>
+                <select
+                    id="timezone"
+                    name="timezone"
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 mt-1 block"
+                    required
+                >
+                    <option value="Asia/Jakarta" :selected="user.timezone === 'Asia/Jakarta'">Asia/Jakarta (WIB)</option>
+                    <option value="Asia/Makassar" :selected="user.timezone === 'Asia/Makassar'">Asia/Makassar (WITA)</option>
+                    <option value="Asia/Jayapura" :selected="user.timezone === 'Asia/Jayapura'">Asia/Jayapura (WIT)</option>
+                    <option value="UTC" :selected="user.timezone === 'UTC'">UTC</option>
+                </select>
+                <InputError class="mt-2" :message="errors.timezone" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="date_format">Date Format</Label>
+                <select
+                    id="date_format"
+                    name="date_format"
+                    class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 mt-1 block"
+                    required
+                >
+                    <option value="d/m/Y" :selected="user.date_format === 'd/m/Y'">DD/MM/YYYY (31/12/2026)</option>
+                    <option value="Y-m-d" :selected="user.date_format === 'Y-m-d'">YYYY-MM-DD (2026-12-31)</option>
+                    <option value="m/d/Y" :selected="user.date_format === 'm/d/Y'">MM/DD/YYYY (12/31/2026)</option>
+                </select>
+                <InputError class="mt-2" :message="errors.date_format" />
+            </div>
+
+            <div class="grid gap-2">
+                <Label for="month_start_day">Month Start Day (e.g. for Salary)</Label>
+                <Input
+                    id="month_start_day"
+                    type="number"
+                    min="1"
+                    max="28"
+                    class="mt-1 block w-full"
+                    name="month_start_day"
+                    :default-value="user.month_start_day"
+                    required
+                    placeholder="25"
+                />
+                <InputError class="mt-2" :message="errors.month_start_day" />
+            </div>
+
             <!-- @chisel-email-verification -->
             <div v-if="page.props.mustVerifyEmail && !user.email_verified_at">
                 <p class="-mt-4 text-sm text-muted-foreground">

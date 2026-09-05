@@ -16,8 +16,8 @@ The implementation is divided into phases, each building on the previous one. Ea
 ```
 Phase 0: Specification ✅ (this document set)
 Phase 1: Project Setup & Foundation ✅ (completed 2026-08-31)
-Phase 2: Authentication & User System ⬜ (next)
-Phase 3: Database & Financial Core ⬜
+Phase 2: Authentication & User System ✅ (completed 2026-09-03)
+Phase 3: Database & Financial Core ⬜ (next)
 Phase 4: Accounts & Basic Transactions ⬜
 Phase 5: Categories & Transaction Management ⬜
 Phase 6: Dashboard ⬜
@@ -90,20 +90,20 @@ Phase 15: Deployment ⬜
 
 ---
 
-### Phase 2: Authentication & User System ⬜ NEXT
+### Phase 2: Authentication & User System ✅ COMPLETED
 
 **Objective**: Implement user registration, login, and profile management.
 
 **Prerequisites**: Phase 1 ✅
 
 **Tasks**:
-1. ~~Install Laravel Breeze~~ — Already scaffolded via Vue starter kit + Laravel Fortify
-2. Customize `users` migration with additional fields: `timezone`, `theme`, `default_currency`, `month_start_day`, `date_format`
-3. Restyle Auth pages (Login, Register) to match Obsidian Finance dark theme from `docs/09_DESIGN_SYSTEM.md`
-4. Restyle profile/settings page
-5. Configure session driver (currently `database` — acceptable for V1, Redis in production)
-6. Verify rate limiting for auth routes (already configured via Fortify)
-7. Add CSRF protection verification
+1. [x] ~~Install Laravel Breeze~~ — Already scaffolded via Vue starter kit + Laravel Fortify
+2. [x] Customize `users` migration with additional fields: `timezone`, `theme`, `default_currency`, `month_start_day`, `date_format`
+3. [x] Restyle Auth pages (Login, Register) to match Obsidian Finance dark theme from `docs/09_DESIGN_SYSTEM.md`
+4. [x] Restyle profile/settings page
+5. [x] Configure session driver (currently `database` — acceptable for V1, Redis in production)
+6. [x] Verify rate limiting for auth routes (already configured via Fortify)
+7. [x] Add CSRF protection verification
 
 **Expected Output**:
 - User can register, login, logout
@@ -114,15 +114,15 @@ Phase 15: Deployment ⬜
 - `users` table with custom fields (per Database Schema §3.1)
 
 **Acceptance Criteria**:
-- [ ] Registration creates user with default settings
-- [ ] Login authenticates and redirects to dashboard (placeholder)
-- [ ] Logout destroys session
-- [ ] Rate limiting blocks after 5 failed logins
-- [ ] Theme toggle persists across sessions
+- [x] Registration creates user with default settings
+- [x] Login authenticates and redirects to dashboard (placeholder)
+- [x] Logout destroys session
+- [x] Rate limiting blocks after 5 failed logins
+- [x] Theme toggle persists across sessions
 
 ---
 
-### Phase 3: Database & Financial Core
+### Phase 3: Database & Financial Core ⬜ NEXT
 
 **Objective**: Create all V1 database migrations, models, enums, and the core financial service layer.
 

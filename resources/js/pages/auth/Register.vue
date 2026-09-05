@@ -56,7 +56,7 @@ defineOptions({
                     :tabindex="2"
                     autocomplete="email"
                     name="email"
-                    placeholder="email@example.com"
+                    placeholder="name@company.com"
                 />
                 <InputError :message="errors.email" />
             </div>
@@ -103,12 +103,7 @@ defineOptions({
 
         <div class="text-center text-sm text-muted-foreground">
             Already have an account?
-            <TextLink
-                :href="login()"
-                class="underline underline-offset-4"
-                :tabindex="6"
-                >Log in</TextLink
-            >
+            <TextLink :href="login()" :tabindex="6">Log in</TextLink>
         </div>
     </Form>
 </template>

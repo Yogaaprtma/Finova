@@ -18,6 +18,10 @@ trait ProfileValidationRules
         return [
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
+            'default_currency' => ['required', 'string', 'size:3'],
+            'timezone' => ['required', 'string', 'timezone:all'],
+            'date_format' => ['required', 'string', Rule::in(['Y-m-d', 'd/m/Y', 'm/d/Y'])],
+            'month_start_day' => ['required', 'integer', 'min:1', 'max:28'],
         ];
     }
 
