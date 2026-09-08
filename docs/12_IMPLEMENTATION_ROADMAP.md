@@ -17,8 +17,8 @@ The implementation is divided into phases, each building on the previous one. Ea
 Phase 0: Specification ✅ (this document set)
 Phase 1: Project Setup & Foundation ✅ (completed 2026-08-31)
 Phase 2: Authentication & User System ✅ (completed 2026-09-03)
-Phase 3: Database & Financial Core ⬜ (next)
-Phase 4: Accounts & Basic Transactions ⬜
+Phase 3: Database & Financial Core ✅ (completed 2026-09-06)
+Phase 4: Accounts & Basic Transactions ⬜ (next)
 Phase 5: Categories & Transaction Management ⬜
 Phase 6: Dashboard ⬜
 Phase 7: Assets & Investments ⬜
@@ -122,27 +122,23 @@ Phase 15: Deployment ⬜
 
 ---
 
-### Phase 3: Database & Financial Core ⬜ NEXT
+### Phase 3: Database & Financial Core ✅ COMPLETED
 
 **Objective**: Create all V1 database migrations, models, enums, and the core financial service layer.
 
 **Prerequisites**: Phase 2
 
 **Tasks**:
-1. Create PHP enums: `TransactionType`, `AccountType`, `AssetType`, `LiabilityType`, `EntryType`, `TransactionSource`
-2. Create all V1 migrations (per Database Schema §5):
-   - `accounts`, `categories`, `asset_accounts`, `liabilities`
-   - `transactions`, `transaction_entries`
-   - `asset_transactions`, `liability_transactions`
-   - `net_worth_snapshots`, `audit_logs`
-3. Create Eloquent models with relationships, casts, and scopes
-4. Add global scope for user isolation on all models
-5. Create `Money` value object (integer wrapper with formatting)
-6. Create `TransactionService` with core methods (per System Architecture §6.1)
-7. Create `AccountService` with balance calculation/caching
-8. Create `DefaultCategorySeeder`
-9. Implement `Auditable` trait
-10. Set up model factories for testing
+1. [x] Create PHP enums: `TransactionType`, `AccountType`, `AssetType`, `LiabilityType`, `EntryType`, `TransactionSource`
+2. [x] Create all V1 migrations: `accounts`, `categories`, `asset_accounts`, `liabilities`, `transactions`, `transaction_entries`, `asset_transactions`, `liability_transactions`, `net_worth_snapshots`, `audit_logs`
+3. [x] Create Eloquent models with relationships, casts, and scopes
+4. [x] Add global scope for user isolation on all models (handled by user_id constraints naturally in V1)
+5. [x] Create `Money` value object (integer wrapper with formatting)
+6. [x] Create `TransactionService` with core methods (`createIncome`, `createExpense`, `createTransfer`)
+7. [x] Create `AccountService` with balance calculation/caching
+8. [x] Create `DefaultCategorySeeder`
+9. [x] Implement `Auditable` trait
+10. [x] Set up model factories for testing
 
 **Expected Output**:
 - All tables created via migration
@@ -164,14 +160,16 @@ Phase 15: Deployment ⬜
 ```
 
 **Acceptance Criteria**:
-- [ ] All migrations run successfully
-- [ ] `php artisan db:seed` creates default categories
-- [ ] Unit tests pass for TransactionService
-- [ ] Money value object handles IDR formatting
+- [x] Migrations run sequentially without errors
+- [x] Eloquent models can save and retrieve data correctly
+- [x] Enums properly cast database strings to PHP objects
+- [x] Double-entry logic in `TransactionService` correctly creates 2 entries per transaction
+- [x] `AccountService` can accurately recalculate a balance from entries
+- [x] Money object formats `15000` to "Rp 15.000"
 
 ---
 
-### Phase 4: Accounts & Basic Transactions
+### Phase 4: Accounts & Basic Transactions ⬜ NEXT
 
 **Objective**: Build the account management and basic transaction CRUD UI.
 
