@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
+use App\Models\Category;
 use App\Services\DashboardService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,6 +29,8 @@ class DashboardController extends Controller
             'cashFlow' => $data['cash_flow'],
             'assetAllocation' => $data['asset_allocation'],
             'recentTransactions' => $data['recent_transactions'],
+            'accounts' => Account::where('user_id', $userId)->select('id', 'name', 'type')->get(),
+            'categories' => Category::where('user_id', $userId)->select('id', 'name', 'type', 'icon', 'color')->get(),
             'period' => $period,
         ]);
     }
