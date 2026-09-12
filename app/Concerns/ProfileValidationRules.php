@@ -22,6 +22,14 @@ trait ProfileValidationRules
             'timezone' => ['sometimes', 'required', 'string', 'timezone:all'],
             'date_format' => ['sometimes', 'required', 'string', Rule::in(['Y-m-d', 'd/m/Y', 'm/d/Y'])],
             'month_start_day' => ['sometimes', 'required', 'integer', 'min:1', 'max:28'],
+            'whatsapp_number' => [
+                'nullable',
+                'string',
+                'max:25',
+                $userId === null
+                    ? Rule::unique(User::class)
+                    : Rule::unique(User::class)->ignore($userId),
+            ],
         ];
     }
 
