@@ -24,7 +24,7 @@ class AccountService
             ->value('calculated_balance');
 
         $account->update([
-            'current_balance' => (int) $balance
+            'current_balance' => (int) $balance,
         ]);
     }
 
