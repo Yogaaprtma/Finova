@@ -40,4 +40,16 @@ class Account extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function entries()
+    {
+        return $this->hasMany(TransactionEntry::class);
+    }
+
+    public function transactions()
+    {
+        return $this->belongsToMany(Transaction::class, 'transaction_entries')
+            ->withPivot(['amount', 'type', 'currency'])
+            ->withTimestamps();
+    }
 }
