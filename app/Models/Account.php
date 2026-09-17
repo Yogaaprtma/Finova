@@ -49,7 +49,6 @@ class Account extends Model
     public function transactions()
     {
         return $this->belongsToMany(Transaction::class, 'transaction_entries')
-            ->withPivot(['amount', 'type', 'currency'])
-            ->withTimestamps();
+            ->withPivot(['amount', 'entry_type']);
     }
 }
