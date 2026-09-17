@@ -9,4 +9,5 @@ enum TransactionSource: string
     case WHATSAPP = 'whatsapp';
     case RECURRING = 'recurring';
     case IMPORT = 'import';
+    case SYSTEM = 'system';
 }
