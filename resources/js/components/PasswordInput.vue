@@ -30,7 +30,7 @@ defineExpose({
     <div class="relative">
         <Lock
             v-if="showLockIcon"
-            class="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none"
+            class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
         />
         <Input
             ref="inputRef"
@@ -41,7 +41,7 @@ defineExpose({
         <button
             type="button"
             @click="showPassword = !showPassword"
-            class="absolute inset-y-0 right-0 flex items-center rounded-r-md px-3.5 text-muted-foreground hover:text-foreground focus-visible:outline-none transition-colors cursor-pointer"
+            class="absolute inset-y-0 right-0 flex cursor-pointer items-center rounded-r-md px-3.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none"
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
             :tabindex="-1"
         >
