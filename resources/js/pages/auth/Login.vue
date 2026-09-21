@@ -46,9 +46,15 @@ defineProps<{
     >
         <div class="grid gap-5">
             <div class="grid gap-2">
-                <Label for="email" class="text-xs sm:text-sm font-medium text-foreground">Email address</Label>
+                <Label
+                    for="email"
+                    class="text-xs font-medium text-foreground sm:text-sm"
+                    >Email address</Label
+                >
                 <div class="relative">
-                    <Mail class="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                    <Mail
+                        class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
                     <Input
                         id="email"
                         type="email"
@@ -58,14 +64,18 @@ defineProps<{
                         :tabindex="1"
                         autocomplete="email"
                         placeholder="name@company.com"
-                        class="pl-10 h-10.5 rounded-xl border-border/80 bg-input/40 dark:bg-[#131622]/80 focus-visible:ring-primary/25 transition-all text-sm placeholder:text-muted-foreground/60"
+                        class="h-10.5 rounded-xl border-border/80 bg-input/40 pl-10 text-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-primary/25 dark:bg-[#131622]/80"
                     />
                 </div>
                 <InputError :message="errors.email" />
             </div>
 
             <div class="grid gap-2">
-                <Label for="password" class="text-xs sm:text-sm font-medium text-foreground">Password</Label>
+                <Label
+                    for="password"
+                    class="text-xs font-medium text-foreground sm:text-sm"
+                    >Password</Label
+                >
                 <PasswordInput
                     id="password"
                     name="password"
@@ -73,20 +83,28 @@ defineProps<{
                     :tabindex="2"
                     autocomplete="current-password"
                     placeholder="••••••••"
-                    class="h-10.5 rounded-xl border-border/80 bg-input/40 dark:bg-[#131622]/80 focus-visible:ring-primary/25 transition-all text-sm placeholder:text-muted-foreground/60"
+                    class="h-10.5 rounded-xl border-border/80 bg-input/40 text-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-primary/25 dark:bg-[#131622]/80"
                 />
                 <InputError :message="errors.password" />
             </div>
 
-            <div class="flex items-center justify-between text-sm mt-0.5">
-                <Label for="remember" class="flex items-center gap-2.5 font-normal cursor-pointer select-none text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    <Checkbox id="remember" name="remember" :tabindex="3" class="rounded-md border-border/80 data-[state=checked]:bg-primary data-[state=checked]:border-primary" />
+            <div class="mt-0.5 flex items-center justify-between text-sm">
+                <Label
+                    for="remember"
+                    class="flex cursor-pointer items-center gap-2.5 text-xs font-normal text-muted-foreground transition-colors select-none hover:text-foreground sm:text-sm"
+                >
+                    <Checkbox
+                        id="remember"
+                        name="remember"
+                        :tabindex="3"
+                        class="rounded-md border-border/80 data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                    />
                     <span>Remember me</span>
                 </Label>
                 <TextLink
                     v-if="canResetPassword"
                     :href="request()"
-                    class="text-xs sm:text-sm font-medium text-primary hover:text-primary-400 transition-colors"
+                    class="hover:text-primary-400 text-xs font-medium text-primary transition-colors sm:text-sm"
                     :tabindex="5"
                 >
                     Forgot password?
@@ -95,7 +113,7 @@ defineProps<{
 
             <Button
                 type="submit"
-                class="mt-2 w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border-0"
+                class="mt-2 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border-0 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 font-medium text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:from-blue-500 hover:to-indigo-500 hover:shadow-blue-500/40 active:scale-[0.99]"
                 :tabindex="4"
                 :disabled="processing"
                 data-test="login-button"
@@ -105,9 +123,14 @@ defineProps<{
             </Button>
         </div>
 
-        <div class="text-center text-xs sm:text-sm text-muted-foreground pt-1">
+        <div class="pt-1 text-center text-xs text-muted-foreground sm:text-sm">
             Don't have an account?
-            <TextLink :href="register()" :tabindex="5" class="font-medium text-primary hover:text-primary-400 ml-1">Sign up</TextLink>
+            <TextLink
+                :href="register()"
+                :tabindex="5"
+                class="hover:text-primary-400 ml-1 font-medium text-primary"
+                >Sign up</TextLink
+            >
         </div>
     </Form>
 </template>
