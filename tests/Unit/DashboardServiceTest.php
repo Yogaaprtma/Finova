@@ -60,14 +60,14 @@ class DashboardServiceTest extends TestCase
             'amount' => 10000000, // 10 million IDR
         ]);
 
-        // 2. Add an investment asset
+        // 2. Add an investment asset (1 lot BBCA = 100 shares * 10,000 = 1,000,000)
         AssetAccount::create([
             'user_id' => $this->user->id,
             'name' => 'BBCA Stock',
             'type' => AssetType::STOCK,
             'currency' => 'IDR',
-            'quantity' => 100,
-            'current_price' => 10000, // 100 * 10,000 = 1,000,000
+            'quantity' => 1,
+            'current_price' => 10000,
         ]);
 
         // 3. Add a liability
