@@ -23,6 +23,8 @@ class AssetTransaction extends Model
         return [
             'quantity' => 'decimal:8',
             'price_per_unit' => 'decimal:8',
+            'total_amount' => 'integer',
+            'fees' => 'integer',
             'created_at' => 'datetime',
         ];
     }
