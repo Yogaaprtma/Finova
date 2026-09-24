@@ -36,6 +36,13 @@ class AssetAccount extends Model
         'last_price_update', 'is_active', 'sort_order', 'notes',
     ];
 
+    protected $appends = [
+        'current_value',
+        'cost_basis',
+        'unrealized_pnl',
+        'unrealized_pnl_percentage',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -43,9 +50,46 @@ class AssetAccount extends Model
             'quantity' => 'decimal:8',
             'avg_purchase_price' => 'decimal:8',
             'current_price' => 'decimal:8',
+            'manual_value' => 'integer',
             'last_price_update' => 'datetime',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function getCurrentValueAttribute(): int
+    {
+        if ($this->manual_value !== null) {
+            return (int) $this->manual_value;
+        }
+
+        $multiplier = $this->type?->multiplier() ?? 1;
+
+        return (int) round((float) $this->quantity * (float) $this->current_price * $multiplier);
+    }
+
+    public function getCostBasisAttribute(): int
+    {
+        if ($this->manual_value !== null) {
+            return (int) $this->manual_value;
+        }
+
+        $multiplier = $this->type?->multiplier() ?? 1;
+
+        return (int) round((float) $this->quantity * (float) $this->avg_purchase_price * $multiplier);
+    }
+
+    public function getUnrealizedPnlAttribute(): int
+    {
+        return $this->current_value - $this->cost_basis;
+    }
+
+    public function getUnrealizedPnlPercentageAttribute(): float
+    {
+        if ($this->cost_basis <= 0) {
+            return 0.0;
+        }
+
+        return round(($this->unrealized_pnl / $this->cost_basis) * 100, 2);
     }
 
     public function user(): BelongsTo
