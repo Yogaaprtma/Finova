@@ -30,7 +30,18 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $data = $request->validated();
+        if (array_key_exists('whatsapp_number', $data)) {
+            if (!empty($data['whatsapp_number'])) {
+                $data['whatsapp_number'] = \App\Services\Messaging\PhoneNumberNormalizer::normalize($data['whatsapp_number']);
+                $data['whatsapp_verified'] = true;
+            } else {
+                $data['whatsapp_number'] = null;
+                $data['whatsapp_verified'] = false;
+            }
+        }
+
+        $request->user()->fill($data);
 
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
