@@ -35,7 +35,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, SocialAccount> $socialAccounts
  */
-#[Fillable(['name', 'email', 'password', 'timezone', 'theme', 'default_currency', 'month_start_day', 'date_format'])]
+#[Fillable(['name', 'email', 'password', 'timezone', 'theme', 'default_currency', 'month_start_day', 'date_format', 'whatsapp_number', 'whatsapp_verified'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -53,6 +53,7 @@ class User extends Authenticatable implements PasskeyUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'whatsapp_verified' => 'boolean',
         ];
     }
 
