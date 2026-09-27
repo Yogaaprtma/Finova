@@ -1,0 +1,81 @@
+{
+  "name": "Finova — Personal Finance",
+  "short_name": "Finova",
+  "description": "Unified personal wealth, cash flow, investments, and debt tracker.",
+  "id": "/dashboard",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0F1117",
+  "theme_color": "#0F1117",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1024x665",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Finova Desktop Portfolio"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "880x1024",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Finova Mobile Experience"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Record Transaction",
+      "short_name": "Add Tx",
+      "description": "Record a new financial transaction",
+      "url": "/transactions/create",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Financial Dashboard",
+      "short_name": "Dashboard",
+      "description": "View net worth and cash flow",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Investments & Portfolio",
+      "short_name": "Portfolio",
+      "description": "Track asset allocation and unrealized P/L",
+      "url": "/assets",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Financial Reports",
+      "short_name": "Reports",
+      "description": "Analyze monthly cash flow and net worth trends",
+      "url": "/reports",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
