@@ -24,7 +24,7 @@ trait Auditable
 
     protected function logAudit(string $action, ?array $oldValues, ?array $newValues)
     {
-        if (!config('finance.audit_enabled', true)) {
+        if (! config('finance.audit_enabled', true)) {
             return;
         }
 
