@@ -11,8 +11,13 @@ use InvalidArgumentException;
 
 class TransactionService
 {
-    public function __construct(private AccountService $accountService)
-    {
+    private DashboardService $dashboardService;
+
+    public function __construct(
+        private AccountService $accountService,
+        ?DashboardService $dashboardService = null,
+    ) {
+        $this->dashboardService = $dashboardService ?? app(DashboardService::class);
     }
 
     public function createIncome(array $data): Transaction
@@ -20,11 +25,13 @@ class TransactionService
         return DB::transaction(function () use ($data) {
             $transaction = Transaction::create([
                 'user_id' => $data['user_id'],
-                'category_id' => $data['category_id'],
+                'category_id' => $data['category_id'] ?? null,
                 'type' => TransactionType::INCOME,
                 'date' => $data['date'],
                 'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? 'IDR',
                 'description' => $data['description'],
+                'notes' => $data['notes'] ?? null,
                 'source' => $data['source'] ?? 'manual',
             ]);
 
@@ -42,6 +49,7 @@ class TransactionService
             ]);
 
             $this->accountService->recalculateBalance(Account::find($data['account_id']));
+            $this->dashboardService->clearDashboardCache((string) $data['user_id']);
 
             return $transaction;
         });
@@ -52,11 +60,13 @@ class TransactionService
         return DB::transaction(function () use ($data) {
             $transaction = Transaction::create([
                 'user_id' => $data['user_id'],
-                'category_id' => $data['category_id'],
+                'category_id' => $data['category_id'] ?? null,
                 'type' => TransactionType::EXPENSE,
                 'date' => $data['date'],
                 'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? 'IDR',
                 'description' => $data['description'],
+                'notes' => $data['notes'] ?? null,
                 'source' => $data['source'] ?? 'manual',
             ]);
 
@@ -74,6 +84,7 @@ class TransactionService
             ]);
 
             $this->accountService->recalculateBalance(Account::find($data['account_id']));
+            $this->dashboardService->clearDashboardCache((string) $data['user_id']);
 
             return $transaction;
         });
@@ -82,7 +93,7 @@ class TransactionService
     public function createTransfer(array $data): Transaction
     {
         if ($data['from_account_id'] === $data['to_account_id']) {
-            throw new InvalidArgumentException("Cannot transfer to the same account.");
+            throw new InvalidArgumentException('Cannot transfer to the same account.');
         }
 
         return DB::transaction(function () use ($data) {
@@ -91,7 +102,9 @@ class TransactionService
                 'type' => TransactionType::TRANSFER,
                 'date' => $data['date'],
                 'amount' => $data['amount'],
+                'currency' => $data['currency'] ?? 'IDR',
                 'description' => $data['description'],
+                'notes' => $data['notes'] ?? null,
                 'source' => $data['source'] ?? 'manual',
             ]);
 
@@ -111,6 +124,47 @@ class TransactionService
 
             $this->accountService->recalculateBalance(Account::find($data['from_account_id']));
             $this->accountService->recalculateBalance(Account::find($data['to_account_id']));
+            $this->dashboardService->clearDashboardCache((string) $data['user_id']);
+
+            return $transaction;
+        });
+    }
+
+    public function createAdjustment(array $data): Transaction
+    {
+        return DB::transaction(function () use ($data) {
+            $rawAmount = (int) $data['amount'];
+            $isPositive = $rawAmount >= 0;
+            $amount = abs($rawAmount);
+
+            $transaction = Transaction::create([
+                'user_id' => $data['user_id'],
+                'category_id' => $data['category_id'] ?? null,
+                'type' => TransactionType::ADJUSTMENT,
+                'date' => $data['date'] ?? now(),
+                'amount' => $amount,
+                'description' => $data['description'] ?? 'Initial Balance',
+                'source' => $data['source'] ?? 'system',
+            ]);
+
+            $transaction->entries()->create([
+                'account_id' => $data['account_id'],
+                'entry_type' => $isPositive ? EntryType::CREDIT : EntryType::DEBIT,
+                'amount' => $amount,
+            ]);
+
+            $transaction->entries()->create([
+                'account_id' => null,
+                'entry_type' => $isPositive ? EntryType::DEBIT : EntryType::CREDIT,
+                'amount' => $amount,
+            ]);
+
+            $account = Account::find($data['account_id']);
+            if ($account) {
+                $this->accountService->recalculateBalance($account);
+            }
+
+            $this->dashboardService->clearDashboardCache((string) $data['user_id']);
 
             return $transaction;
         });
@@ -153,7 +207,9 @@ class TransactionService
                     'entry_type' => EntryType::DEBIT,
                     'amount' => $amount,
                 ]);
-                if ($accountId) $newAccountIds[] = $accountId;
+                if ($accountId) {
+                    $newAccountIds[] = $accountId;
+                }
             } elseif ($type === TransactionType::EXPENSE) {
                 $accountId = $data['account_id'] ?? $oldAccountIds[0] ?? null;
                 $transaction->entries()->create([
@@ -165,15 +221,17 @@ class TransactionService
                     'entry_type' => EntryType::CREDIT,
                     'amount' => $amount,
                 ]);
-                if ($accountId) $newAccountIds[] = $accountId;
+                if ($accountId) {
+                    $newAccountIds[] = $accountId;
+                }
             } elseif ($type === TransactionType::TRANSFER) {
                 $fromAccountId = $data['from_account_id'] ?? $oldAccountIds[0] ?? null;
                 $toAccountId = $data['to_account_id'] ?? $oldAccountIds[1] ?? null;
-                
+
                 if ($fromAccountId === $toAccountId) {
-                    throw new InvalidArgumentException("Cannot transfer to the same account.");
+                    throw new InvalidArgumentException('Cannot transfer to the same account.');
                 }
-                
+
                 $transaction->entries()->create([
                     'account_id' => $fromAccountId,
                     'entry_type' => EntryType::DEBIT,
@@ -184,8 +242,27 @@ class TransactionService
                     'entry_type' => EntryType::CREDIT,
                     'amount' => $amount,
                 ]);
-                if ($fromAccountId) $newAccountIds[] = $fromAccountId;
-                if ($toAccountId) $newAccountIds[] = $toAccountId;
+                if ($fromAccountId) {
+                    $newAccountIds[] = $fromAccountId;
+                }
+                if ($toAccountId) {
+                    $newAccountIds[] = $toAccountId;
+                }
+            } elseif ($type === TransactionType::ADJUSTMENT) {
+                $accountId = $data['account_id'] ?? $oldAccountIds[0] ?? null;
+                $transaction->entries()->create([
+                    'account_id' => $accountId,
+                    'entry_type' => EntryType::CREDIT,
+                    'amount' => $amount,
+                ]);
+                $transaction->entries()->create([
+                    'account_id' => null,
+                    'entry_type' => EntryType::DEBIT,
+                    'amount' => $amount,
+                ]);
+                if ($accountId) {
+                    $newAccountIds[] = $accountId;
+                }
             }
 
             // Recalculate all affected accounts (old and new)
@@ -196,6 +273,8 @@ class TransactionService
                 }
             }
 
+            $this->dashboardService->clearDashboardCache((string) $transaction->user_id);
+
             return $transaction;
         });
     }
@@ -204,6 +283,7 @@ class TransactionService
     {
         DB::transaction(function () use ($transaction) {
             $accountIds = $transaction->entries()->whereNotNull('account_id')->pluck('account_id')->unique()->toArray();
+            $userId = (string) $transaction->user_id;
 
             $transaction->delete();
 
@@ -212,6 +292,8 @@ class TransactionService
                     $this->accountService->recalculateBalance($account);
                 }
             }
+
+            $this->dashboardService->clearDashboardCache($userId);
         });
     }
 }
