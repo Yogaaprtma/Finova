@@ -66,7 +66,8 @@ class DashboardService
             if ($asset->manual_value !== null) {
                 $totalInvestments += (int) $asset->manual_value;
             } else {
-                $totalInvestments += (int) round((float) $asset->quantity * (float) $asset->current_price);
+                $multiplier = $asset->type->multiplier();
+                $totalInvestments += (int) round((float) $asset->quantity * $multiplier * (float) $asset->current_price);
             }
         }
 
@@ -127,12 +128,12 @@ class DashboardService
     public function getCashFlowData(string $userId, string $period = 'this_month'): array
     {
         if ($period === 'last_month') {
-            $startDate = now()->subMonth()->startOfMonth()->toDateString();
-            $endDate = now()->subMonth()->endOfMonth()->toDateString();
-            $periodLabel = now()->subMonth()->format('F Y');
+            $startDate = now()->subMonthNoOverflow()->startOfMonth()->toDateString();
+            $endDate = now()->subMonthNoOverflow()->endOfMonth()->toDateString().' 23:59:59';
+            $periodLabel = now()->subMonthNoOverflow()->format('F Y');
         } else {
             $startDate = now()->startOfMonth()->toDateString();
-            $endDate = now()->endOfMonth()->toDateString();
+            $endDate = now()->endOfMonth()->toDateString().' 23:59:59';
             $periodLabel = now()->format('F Y');
         }
 
