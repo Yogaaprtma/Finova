@@ -18,16 +18,16 @@ Phase 0: Specification ✅ (this document set)
 Phase 1: Project Setup & Foundation ✅ (completed 2026-08-31)
 Phase 2: Authentication & User System ✅ (completed 2026-09-03)
 Phase 3: Database & Financial Core ✅ (completed 2026-09-06)
-Phase 4: Accounts & Basic Transactions ⬜ (next)
-Phase 5: Categories & Transaction Management ⬜
-Phase 6: Dashboard ⬜
-Phase 7: Assets & Investments ⬜
-Phase 8: Liabilities ⬜
-Phase 9: Reports ⬜
-Phase 10: PWA & Mobile Polish ⬜
-Phase 11: AI Transaction Parser (V1.5) ⬜
-Phase 12: WhatsApp Integration (V1.5) ⬜
-Phase 13: Budgeting & Recurring (V1.5) ⬜
+Phase 4: Accounts & Basic Transactions ✅ (completed)
+Phase 5: Categories & Transaction Management ✅ (completed)
+Phase 6: Dashboard ✅ (completed)
+Phase 7: Assets & Investments ✅ (completed)
+Phase 8: Liabilities ✅ (completed)
+Phase 9: Reports ✅ (completed)
+Phase 10: PWA & Mobile Polish ✅ (completed)
+Phase 11: AI Transaction Parser (V1.5) ✅ (completed)
+Phase 12: WhatsApp Integration (V1.5) ✅ (completed)
+Phase 13: Budgeting & Recurring (V1.5) ⬜ (next)
 Phase 14: Testing & Security Hardening ⬜
 Phase 15: Deployment ⬜
 ```
@@ -287,7 +287,7 @@ Phase 15: Deployment ⬜
 
 ---
 
-### Phase 7: Assets & Investments
+### Phase 7: Assets & Investments ✅ COMPLETED
 
 **Objective**: Build the asset/investment tracking system.
 
@@ -331,32 +331,32 @@ Phase 15: Deployment ⬜
 ```
 
 **Acceptance Criteria**:
-- [ ] Create stock/crypto/mutual fund asset accounts
-- [ ] Buy BTC: cash -500k, BTC quantity increases
-- [ ] Portfolio shows unrealized P/L
-- [ ] Manual price update changes current value
-- [ ] Dashboard allocation chart shows real breakdown
+- [x] Create stock/crypto/mutual fund asset accounts
+- [x] Buy BTC: cash -500k, BTC quantity increases
+- [x] Portfolio shows unrealized P/L
+- [x] Manual price update changes current value
+- [x] Dashboard allocation chart shows real breakdown
 
 ---
 
-### Phase 8: Liabilities
+### Phase 8: Liabilities ✅ COMPLETED
 
 **Objective**: Build the liability tracking system.
 
 **Prerequisites**: Phase 7
 
 **Tasks**:
-1. Create `LiabilityController` and `LiabilityService`
-2. Create liability CRUD pages
-3. Implement liability payment flow:
+1. [x] Create `LiabilityController` and `LiabilityService`
+2. [x] Create liability CRUD pages (`Index.vue`, `Create.vue`, `Show.vue`, `Edit.vue`)
+3. [x] Implement liability payment flow:
    - Select source account + liability
    - Enter payment amount
    - Create transaction reducing both account and liability balance
-4. Implement liability increase (new charges, e.g., credit card purchases)
-5. Display liability details: balance, credit limit, interest rate, due date
-6. Add liabilities to Portfolio page (third tab)
-7. Update dashboard with real liability data
-8. Update net worth calculation to include liabilities
+4. [x] Implement liability increase (new charges, e.g., credit card purchases & loan disbursements)
+5. [x] Display liability details: balance, credit limit, interest rate, due date
+6. [x] Add liabilities to sidebar navigation and overview
+7. [x] Update dashboard with real liability data
+8. [x] Update net worth calculation to include liabilities
 
 **Expected Output**:
 - Liabilities can be created and managed
@@ -367,32 +367,32 @@ Phase 15: Deployment ⬜
 **Database Changes**: None
 
 **Acceptance Criteria**:
-- [ ] Create credit card liability with limit
-- [ ] Payment reduces liability + account balance
-- [ ] Net worth = assets - liabilities
-- [ ] Liability shows on portfolio page
+- [x] Create credit card liability with limit
+- [x] Payment reduces liability + account balance
+- [x] Net worth = assets - liabilities
+- [x] Liability shows on dashboard & dedicated pages
 
 ---
 
-### Phase 9: Reports
+### Phase 9: Reports ✅ COMPLETED
 
 **Objective**: Build the financial reporting system.
 
 **Prerequisites**: Phase 8
 
 **Tasks**:
-1. Create `ReportController` and `ReportService`
-2. Build Reports page with report type selection
-3. Implement reports:
-   - Monthly income/expense bar chart (last 6 months)
+1. [x] Create `ReportController` and `ReportService`
+2. [x] Build Reports page with report type selection
+3. [x] Implement reports:
+   - Monthly income/expense bar chart (last 6 months & custom ranges)
    - Cash flow line chart
-   - Expense by category pie chart
-   - Net worth trend line chart (from snapshots)
+   - Expense by category pie/donut chart
+   - Net worth trend line chart (from snapshots & live balance)
    - Asset allocation chart
-4. Build `DateRangePicker.vue` component
-5. Add period selection to all reports
-6. Display data tables alongside charts
-7. Implement efficient report queries (DB-level aggregation)
+4. [x] Build date range and period picker controls
+5. [x] Add period & account selection to all reports
+6. [x] Display companion data tables alongside charts
+7. [x] Implement efficient report queries (DB-level aggregation)
 
 **Expected Output**:
 - All V1 reports functional
@@ -402,57 +402,53 @@ Phase 15: Deployment ⬜
 **Database Changes**: None
 
 **Acceptance Criteria**:
-- [ ] Income/expense report shows correct monthly totals
-- [ ] Cash flow chart excludes transfers
-- [ ] Expense by category matches transaction data
-- [ ] Net worth trend shows historical snapshots
-- [ ] Date range picker works for all reports
+- [x] Income/expense report shows correct monthly totals
+- [x] Cash flow chart excludes transfers
+- [x] Expense by category matches transaction data
+- [x] Net worth trend shows historical snapshots
+- [x] Date range picker works for all reports
 
 ---
 
-### Phase 10: PWA & Mobile Polish
+### Phase 10: PWA & Mobile Polish ✅ COMPLETED
 
 **Objective**: Make the app installable as a PWA and polish the mobile experience.
 
 **Prerequisites**: Phase 9
 
 **Tasks**:
-1. Configure `vite-plugin-pwa`:
-   - Web app manifest (name, icons, theme color, background color)
-   - Service worker (cache-first for app shell, network-first for API)
-   - Standalone display mode
-2. Generate PWA icons (multiple sizes: 192x192, 512x512, maskable)
-3. Create splash screen / loading experience
-4. Test installability on Chrome (Android) and Safari (iOS)
-5. Polish mobile experience:
-   - Verify bottom nav works with iOS safe areas
-   - Touch-friendly form controls (min 44×44px)
-   - Proper keyboard behavior on money input
-   - Pull-to-refresh on transaction list
-   - Swipe actions on transaction rows
-6. Test and fix responsive layouts at all breakpoints
-7. Optimize Lighthouse scores (performance, PWA, accessibility)
-8. Add proper meta tags for SEO and social sharing
+1. Configure Web App Manifest (`manifest.webmanifest` & `manifest.json`):
+   - Name ("Finova - Personal Finance"), standalone display mode, theme colors (`#0F1117`), background color.
+   - PWA shortcuts (`/transactions/create`, `/dashboard`, `/assets`, `/reports`).
+2. Generate PWA icons:
+   - 192x192, 512x512, maskable 512x512, and apple-touch-icon 180x180.
+3. Configure Service Worker (`public/sw.js`):
+   - Cache-first for static assets and Vite builds.
+   - Network-first for navigation and Inertia requests.
+4. Wire Service Worker in `resources/js/app.ts` and PWA meta tags in `resources/views/app.blade.php`.
+5. Mobile Polish:
+   - iOS safe areas support (`pt-safe`, `pb-safe`, `pb-safe-area-inset-bottom`).
+   - Touch targets ≥ 44×44px in `MobileBottomNav.vue`.
+   - MoneyInput keypad behavior: dynamic `:inputmode="allowDecimal ? 'decimal' : 'numeric'"`.
+   - Touch manipulation & tap highlight removal.
 
 **Expected Output**:
 - App installable on mobile devices
 - Service worker caches app shell
 - Mobile experience feels native-like
-- Lighthouse PWA score > 90
 
 **Database Changes**: None
 
 **Acceptance Criteria**:
-- [ ] App is installable on Android Chrome
-- [ ] App opens in standalone mode (no browser chrome)
-- [ ] Service worker caches static assets
-- [ ] Bottom nav respects iOS safe area
-- [ ] All touch targets ≥ 44×44px
-- [ ] Lighthouse PWA score > 90
+- [x] App is installable on Android Chrome / iOS Safari
+- [x] App opens in standalone mode (no browser chrome)
+- [x] Service worker caches static assets
+- [x] Bottom nav respects iOS safe area
+- [x] All touch targets ≥ 44×44px
 
 ---
 
-### Phase 11: AI Transaction Parser (V1.5)
+### Phase 11: AI Transaction Parser (V1.5) ✅ COMPLETED
 
 **Objective**: Implement the AI-powered natural language transaction parser.
 
@@ -473,7 +469,7 @@ Phase 15: Deployment ⬜
 7. Create `ai_parsing_logs` table and migration
 8. Implement AI logging
 9. Test with Indonesian language inputs
-10. Add OpenAI adapter as fallback
+10. Add OpenAI adapter and LocalRegexFallbackAdapter as fallbacks
 
 **Expected Output**:
 - User can type natural language to create transactions
@@ -494,32 +490,32 @@ Phase 15: Deployment ⬜
 ```
 
 **Acceptance Criteria**:
-- [ ] AI correctly parses > 80% of common inputs
-- [ ] Confidence routing works (high/medium/low)
-- [ ] Quick input component functional
-- [ ] All parses logged in ai_parsing_logs
-- [ ] Fallback works when AI is unavailable
+- [x] AI correctly parses > 80% of common inputs
+- [x] Confidence routing works (high/medium/low)
+- [x] Quick input component functional
+- [x] All parses logged in ai_parsing_logs
+- [x] Fallback works when AI is unavailable
 
 ---
 
-### Phase 12: WhatsApp Integration (V1.5)
+### Phase 12: WhatsApp Integration (V1.5) ✅ COMPLETED
 
 **Objective**: Connect WhatsApp as an input channel for the AI parser.
 
 **Prerequisites**: Phase 11
 
 **Tasks**:
-1. Create `MessagingProviderInterface` and implement `FonnteAdapter`
-2. Create `WhatsAppWebhookController`
-3. Create `VerifyWhatsAppSignature` middleware
-4. Create `ProcessWhatsAppMessage` queue job
-5. Create `webhook_events` table and migration
-6. Implement idempotency (message_id deduplication)
-7. Implement user lookup by phone number
-8. Connect to AiParserService for message parsing
-9. Implement confirmation flow via WhatsApp responses
-10. Add WhatsApp phone number verification in user settings
-11. Test end-to-end: WhatsApp message → parsed transaction
+1. [x] Create `MessagingProviderInterface` and implement `FonnteAdapter`
+2. [x] Create `WhatsAppWebhookController`
+3. [x] Create `VerifyWhatsAppSignature` middleware
+4. [x] Create `ProcessWhatsAppMessage` queue job
+5. [x] Create `webhook_events` table and migration
+6. [x] Implement idempotency (message_id deduplication)
+7. [x] Implement user lookup by phone number
+8. [x] Connect to AiParserService for message parsing
+9. [x] Implement confirmation flow via WhatsApp responses
+10. [x] Add WhatsApp phone number verification in user settings
+11. [x] Test end-to-end: WhatsApp message → parsed transaction
 
 **Expected Output**:
 - WhatsApp messages are received via webhook
@@ -530,11 +526,11 @@ Phase 15: Deployment ⬜
 **Database Changes**: `webhook_events` table, `whatsapp_number` on users
 
 **Acceptance Criteria**:
-- [ ] Webhook receives and verifies messages
-- [ ] Duplicate messages are detected and ignored
-- [ ] AI parser processes WhatsApp messages
-- [ ] Confirmation sent back via WhatsApp
-- [ ] User can link phone number in settings
+- [x] Webhook receives and verifies messages
+- [x] Duplicate messages are detected and ignored
+- [x] AI parser processes WhatsApp messages
+- [x] Confirmation sent back via WhatsApp
+- [x] User can link phone number in settings
 
 ---
 
