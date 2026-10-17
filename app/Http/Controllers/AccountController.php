@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AccountType;
 use App\Models\Account;
+use App\Services\DashboardService;
+use App\Services\TransactionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Http\RedirectResponse;
-use App\Enums\AccountType;
-use Illuminate\Validation\Rule;
 
 class AccountController extends Controller
 {
@@ -47,10 +50,10 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'name' => [
-                'required', 
-                'string', 
-                'max:255', 
-                Rule::unique('accounts')->where(fn ($query) => $query->where('user_id', $request->user()->id))->whereNull('deleted_at')
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('accounts')->where(fn ($query) => $query->where('user_id', $request->user()->id))->whereNull('deleted_at'),
             ],
             'type' => ['required', Rule::enum(AccountType::class)],
             'currency' => ['required', 'string', 'size:3'],
@@ -66,33 +69,22 @@ class AccountController extends Controller
         // Ensure defaults if not provided
         $validated['currency'] = $validated['currency'] ?? 'IDR';
 
-        $account = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+        $account = DB::transaction(function () use ($validated, $request) {
             $account = Account::create($validated);
 
-            if ($validated['initial_balance'] > 0) {
-                // Create initial balance transaction
-                app(\App\Services\TransactionService::class)->createIncome([
+            if ($validated['initial_balance'] != 0) {
+                // Record initial balance as an adjustment transaction per Financial Logic Spec
+                app(TransactionService::class)->createAdjustment([
                     'user_id' => $request->user()->id,
                     'account_id' => $account->id,
                     'amount' => $validated['initial_balance'],
                     'description' => 'Initial Balance',
                     'date' => now(),
-                    'category_id' => null, // Optional
-                    'source' => 'system',
-                ]);
-            } elseif ($validated['initial_balance'] < 0) {
-                // Unlikely but possible
-                app(\App\Services\TransactionService::class)->createExpense([
-                    'user_id' => $request->user()->id,
-                    'account_id' => $account->id,
-                    'amount' => abs($validated['initial_balance']),
-                    'description' => 'Initial Balance',
-                    'date' => now(),
-                    'category_id' => null, // Optional
+                    'category_id' => null,
                     'source' => 'system',
                 ]);
             }
-            
+
             return $account;
         });
 
@@ -145,13 +137,13 @@ class AccountController extends Controller
 
         $validated = $request->validate([
             'name' => [
-                'required', 
-                'string', 
-                'max:255', 
+                'required',
+                'string',
+                'max:255',
                 Rule::unique('accounts')
                     ->where(fn ($query) => $query->where('user_id', $request->user()->id))
                     ->whereNull('deleted_at')
-                    ->ignore($account->id)
+                    ->ignore($account->id),
             ],
             'type' => ['required', Rule::enum(AccountType::class)],
             'currency' => ['required', 'string', 'size:3'],
@@ -162,6 +154,7 @@ class AccountController extends Controller
         ]);
 
         $account->update($validated);
+        app(DashboardService::class)->clearDashboardCache((string) $request->user()->id);
 
         return redirect()->route('accounts.index')->with('success', 'Account updated successfully.');
     }
@@ -176,6 +169,7 @@ class AccountController extends Controller
         }
 
         $account->delete();
+        app(DashboardService::class)->clearDashboardCache((string) $request->user()->id);
 
         return redirect()->route('accounts.index')->with('success', 'Account deleted successfully.');
     }
