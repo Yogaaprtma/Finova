@@ -44,7 +44,7 @@ class SocialAuthController extends Controller
 
             return redirect()->route('login')->with(
                 'status',
-                'Authentication with ' . ucfirst($provider) . ' is not configured yet. Please check your credentials in .env.'
+                'Authentication with '.ucfirst($provider).' is not configured yet. Please check your credentials in .env.'
             );
         }
     }
