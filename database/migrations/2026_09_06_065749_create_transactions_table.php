@@ -12,21 +12,21 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignUuid('category_id')->nullable()->constrained('categories')->nullOnDelete();
-            
+
             $table->string('type', 30);
-            
+
             $table->date('date');
             $table->bigInteger('amount'); // always positive
             $table->string('currency', 3)->default('IDR');
-            
+
             $table->string('description', 255);
             $table->text('notes')->nullable();
             $table->string('reference_number', 100)->nullable();
-            
+
             $table->string('source', 20)->default('manual');
-            
+
             $table->boolean('is_confirmed')->default(true);
-            
+
             $table->timestamps();
             $table->softDeletes();
         });
