@@ -4,6 +4,9 @@ namespace App\Models;
 
 use App\Enums\TransactionSource;
 use App\Enums\TransactionType;
+use App\Traits\Auditable;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,9 +15,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property string $id
+ * @property int $user_id
+ * @property string|null $category_id
+ * @property TransactionType $type
+ * @property CarbonInterface $date
+ * @property int $amount
+ * @property string $currency
+ * @property string $description
+ * @property string|null $notes
+ * @property string|null $reference_number
+ * @property TransactionSource $source
+ * @property bool $is_confirmed
+ * @property-read Collection<int, TransactionEntry> $entries
+ */
 class Transaction extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use Auditable, HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'user_id', 'category_id', 'type', 'date', 'amount', 'currency',
