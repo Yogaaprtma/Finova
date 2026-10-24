@@ -10,6 +10,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property string $id
+ * @property int $user_id
+ * @property string $name
+ * @property AssetType $type
+ * @property string|null $platform
+ * @property string|null $ticker
+ * @property string $currency
+ * @property string|null $quantity
+ * @property string|null $avg_purchase_price
+ * @property string|null $current_price
+ * @property int|null $manual_value
+ * @property bool $is_active
+ * @property int $sort_order
+ * @property string|null $notes
+ */
 class AssetAccount extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
