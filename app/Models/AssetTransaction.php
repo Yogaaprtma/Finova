@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AssetTransaction extends Model
 {
     use HasFactory, HasUuids;
-    
+
     public $timestamps = false;
 
     protected $fillable = [
