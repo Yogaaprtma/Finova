@@ -12,10 +12,10 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('liability_id')->constrained('liabilities')->cascadeOnDelete();
             $table->foreignUuid('transaction_id')->constrained('transactions')->cascadeOnDelete();
-            
+
             $table->string('type', 10); // 'payment' or 'increase'
             $table->bigInteger('amount');
-            
+
             $table->timestamp('created_at')->useCurrent();
         });
     }
