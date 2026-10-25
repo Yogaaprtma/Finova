@@ -12,13 +12,13 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('asset_account_id')->constrained('asset_accounts')->cascadeOnDelete();
             $table->foreignUuid('transaction_id')->constrained('transactions')->cascadeOnDelete();
-            
+
             $table->string('type', 4); // 'buy' or 'sell'
             $table->decimal('quantity', 20, 8);
             $table->decimal('price_per_unit', 20, 8);
             $table->bigInteger('total_amount');
             $table->bigInteger('fees')->default(0);
-            
+
             $table->timestamp('created_at')->useCurrent();
         });
     }
