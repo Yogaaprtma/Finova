@@ -11,15 +11,15 @@ return new class extends Migration
         Schema::create('net_worth_snapshots', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            
+
             $table->date('date');
             $table->bigInteger('total_cash')->default(0);
             $table->bigInteger('total_investments')->default(0);
             $table->bigInteger('total_liabilities')->default(0);
             $table->bigInteger('net_worth')->default(0);
-            
+
             $table->timestamp('created_at')->useCurrent();
-            
+
             $table->unique(['user_id', 'date']);
         });
     }
