@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue';
 import dayjs from 'dayjs';
 import { dashboard } from '@/routes';
+import CategoryPicker from '@/components/CategoryPicker.vue';
 
 defineOptions({
     layout: {
@@ -53,7 +54,10 @@ const submit = () => {
 };
 
 const setType = (newType: string) => {
-    form.type = newType;
+    if (form.type !== newType) {
+        form.type = newType;
+        form.category_id = '';
+    }
 };
 </script>
 
@@ -204,26 +208,15 @@ const setType = (newType: string) => {
                         </p>
                     </div>
 
-                    <div v-if="form.type !== 'transfer'" class="space-y-2">
-                        <label
-                            for="category_id"
-                            class="text-sm leading-none font-medium"
-                            >Category</label
-                        >
-                        <select
-                            id="category_id"
-                            v-model="form.category_id"
-                            class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-                        >
-                            <option value="">Select a category</option>
-                            <option
-                                v-for="cat in categories"
-                                :key="cat.id"
-                                :value="cat.id"
-                            >
-                                {{ cat.name }}
-                            </option>
-                        </select>
+                    <div v-if="form.type !== 'transfer'" class="space-y-3 md:col-span-2 border-t pt-4">
+                        <label class="text-sm font-medium tracking-wider text-muted-foreground uppercase">
+                            Category
+                        </label>
+                        <CategoryPicker 
+                            v-model="form.category_id" 
+                            :categories="categories" 
+                            :type="form.type" 
+                        />
                         <p
                             v-if="form.errors.category_id"
                             class="text-sm text-destructive"
