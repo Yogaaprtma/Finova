@@ -115,4 +115,103 @@ class TransactionService
             return $transaction;
         });
     }
+
+    public function updateTransaction(Transaction $transaction, array $data): Transaction
+    {
+        return DB::transaction(function () use ($transaction, $data) {
+            // Collect old account IDs to recalculate later
+            $oldAccountIds = $transaction->entries()->whereNotNull('account_id')->pluck('account_id')->unique()->toArray();
+
+            // Hard delete old entries to recreate them
+            $transaction->entries()->delete();
+
+            $type = $data['type'] ?? $transaction->type;
+            if (is_string($type)) {
+                $type = TransactionType::tryFrom($type);
+            }
+
+            $transaction->update([
+                'category_id' => array_key_exists('category_id', $data) ? $data['category_id'] : $transaction->category_id,
+                'type' => $type,
+                'date' => $data['date'] ?? $transaction->date,
+                'amount' => $data['amount'] ?? $transaction->amount,
+                'description' => $data['description'] ?? $transaction->description,
+                'notes' => array_key_exists('notes', $data) ? $data['notes'] : $transaction->notes,
+            ]);
+
+            $newAccountIds = [];
+            $amount = $transaction->amount;
+
+            if ($type === TransactionType::INCOME) {
+                $accountId = $data['account_id'] ?? $oldAccountIds[0] ?? null;
+                $transaction->entries()->create([
+                    'account_id' => $accountId,
+                    'entry_type' => EntryType::CREDIT,
+                    'amount' => $amount,
+                ]);
+                $transaction->entries()->create([
+                    'entry_type' => EntryType::DEBIT,
+                    'amount' => $amount,
+                ]);
+                if ($accountId) $newAccountIds[] = $accountId;
+            } elseif ($type === TransactionType::EXPENSE) {
+                $accountId = $data['account_id'] ?? $oldAccountIds[0] ?? null;
+                $transaction->entries()->create([
+                    'account_id' => $accountId,
+                    'entry_type' => EntryType::DEBIT,
+                    'amount' => $amount,
+                ]);
+                $transaction->entries()->create([
+                    'entry_type' => EntryType::CREDIT,
+                    'amount' => $amount,
+                ]);
+                if ($accountId) $newAccountIds[] = $accountId;
+            } elseif ($type === TransactionType::TRANSFER) {
+                $fromAccountId = $data['from_account_id'] ?? $oldAccountIds[0] ?? null;
+                $toAccountId = $data['to_account_id'] ?? $oldAccountIds[1] ?? null;
+                
+                if ($fromAccountId === $toAccountId) {
+                    throw new InvalidArgumentException("Cannot transfer to the same account.");
+                }
+                
+                $transaction->entries()->create([
+                    'account_id' => $fromAccountId,
+                    'entry_type' => EntryType::DEBIT,
+                    'amount' => $amount,
+                ]);
+                $transaction->entries()->create([
+                    'account_id' => $toAccountId,
+                    'entry_type' => EntryType::CREDIT,
+                    'amount' => $amount,
+                ]);
+                if ($fromAccountId) $newAccountIds[] = $fromAccountId;
+                if ($toAccountId) $newAccountIds[] = $toAccountId;
+            }
+
+            // Recalculate all affected accounts (old and new)
+            $allAccountIds = array_unique(array_merge($oldAccountIds, $newAccountIds));
+            foreach ($allAccountIds as $accountId) {
+                if ($account = Account::find($accountId)) {
+                    $this->accountService->recalculateBalance($account);
+                }
+            }
+
+            return $transaction;
+        });
+    }
+
+    public function deleteTransaction(Transaction $transaction): void
+    {
+        DB::transaction(function () use ($transaction) {
+            $accountIds = $transaction->entries()->whereNotNull('account_id')->pluck('account_id')->unique()->toArray();
+
+            $transaction->delete();
+
+            foreach ($accountIds as $accountId) {
+                if ($account = Account::find($accountId)) {
+                    $this->accountService->recalculateBalance($account);
+                }
+            }
+        });
+    }
 }
