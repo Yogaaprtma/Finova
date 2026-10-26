@@ -175,12 +175,12 @@ class TransactionController extends Controller
         ];
         
         if ($transaction->type === TransactionType::TRANSFER) {
-            $source = $transaction->entries->firstWhere('type', EntryType::DEBIT); // Debits decrease source
-            $dest = $transaction->entries->firstWhere('type', EntryType::CREDIT);
+            $source = $transaction->entries->firstWhere('entry_type', EntryType::DEBIT); // Debits decrease source
+            $dest = $transaction->entries->firstWhere('entry_type', EntryType::CREDIT);
             $formData['source_account_id'] = $source ? $source->account_id : null;
             $formData['destination_account_id'] = $dest ? $dest->account_id : null;
         } else {
-            $entry = $transaction->entries->first();
+            $entry = $transaction->entries->firstWhere('account_id', '!=', null);
             $formData['account_id'] = $entry ? $entry->account_id : null;
         }
 
@@ -195,40 +195,44 @@ class TransactionController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Transaction $transaction)
+    public function update(Request $request, Transaction $transaction): RedirectResponse
     {
-        // For Phase 4, we might just delete and recreate to make it easier to reuse service, or implement update in service.
-        // The implementation roadmap Phase 5 says "Implement transaction edit and delete with proper entry reversal"
-        // Let's defer update logic to Phase 5 or do a simple delete-recreate if possible.
-        
         if ($transaction->user_id !== $request->user()->id) {
             abort(403);
         }
 
-        // Delete the old one and create new one (simple approach for V1)
-        // Wait, deleting soft deletes it. If we recreate, ID changes.
-        // Let's implement proper update in TransactionService.
-        // Actually for Phase 4 we just need basic create/read.
-        // "Phase 5: Implement transaction edit and delete with proper entry reversal"
-        
-        // I will just implement a placeholder for now or return a message
-        return redirect()->route('transactions.index')->with('info', 'Transaction update will be fully implemented in Phase 5.');
+        $validated = $request->validate([
+            'type' => ['required', Rule::enum(TransactionType::class)],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'date' => ['required', 'date'],
+            'description' => ['required', 'string', 'max:255'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'notes' => ['nullable', 'string'],
+            
+            // For income/expense
+            'account_id' => ['required_unless:type,transfer', 'exists:accounts,id'],
+            
+            // For transfer
+            'source_account_id' => ['required_if:type,transfer', 'exists:accounts,id'],
+            'destination_account_id' => ['required_if:type,transfer', 'exists:accounts,id', 'different:source_account_id'],
+        ]);
+
+        $this->transactionService->updateTransaction($transaction, $validated);
+
+        return redirect()->route('transactions.index')->with('success', 'Transaction updated successfully.');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Request $request, Transaction $transaction)
+    public function destroy(Request $request, Transaction $transaction): RedirectResponse
     {
         if ($transaction->user_id !== $request->user()->id) {
             abort(403);
         }
         
-        // Phase 5 says "Implement transaction edit and delete with proper entry reversal"
-        // We can do a basic delete now that doesn't reverse balances, or just wait for Phase 5.
-        // Let's at least delete it.
-        $transaction->delete();
+        $this->transactionService->deleteTransaction($transaction);
 
-        return redirect()->route('transactions.index')->with('success', 'Transaction deleted. (Balance reversal coming in Phase 5)');
+        return redirect()->route('transactions.index')->with('success', 'Transaction deleted successfully.');
     }
 }
