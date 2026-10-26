@@ -84,9 +84,9 @@ const displayAmount = computed(() => {
 
             <!-- Details -->
             <div class="flex min-w-0 flex-col">
-                <span class="truncate text-sm font-medium text-foreground">
+                <Link :href="`/transactions/${transaction.id}`" class="truncate text-sm font-medium text-foreground hover:underline">
                     {{ transaction.description || 'Untitled Transaction' }}
-                </span>
+                </Link>
                 <div
                     class="flex items-center gap-2 text-xs text-muted-foreground"
                 >
