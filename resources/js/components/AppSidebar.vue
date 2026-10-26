@@ -6,6 +6,7 @@ import {
     LayoutGrid,
     Wallet,
     ArrowRightLeft,
+    Tags,
 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
 import NavFooter from '@/components/NavFooter.vue';
@@ -38,6 +39,11 @@ const mainNavItems: NavItem[] = [
         title: 'Transactions',
         href: '/transactions',
         icon: ArrowRightLeft,
+    },
+    {
+        title: 'Categories',
+        href: '/categories',
+        icon: Tags,
     },
 ];
 
