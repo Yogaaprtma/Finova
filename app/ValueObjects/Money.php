@@ -7,6 +7,7 @@ use InvalidArgumentException;
 class Money
 {
     private int $amount;
+
     private string $currency;
 
     public function __construct(int $amount, string $currency = 'IDR')
@@ -33,12 +34,14 @@ class Money
     public function add(Money $other): self
     {
         $this->assertSameCurrency($other);
+
         return new self($this->amount + $other->getAmount(), $this->currency);
     }
 
     public function subtract(Money $other): self
     {
         $this->assertSameCurrency($other);
+
         return new self($this->amount - $other->getAmount(), $this->currency);
     }
 
@@ -59,7 +62,7 @@ class Money
 
     public function format(): string
     {
-        return 'Rp ' . number_format($this->amount, 0, ',', '.');
+        return 'Rp '.number_format($this->amount, 0, ',', '.');
     }
 
     private function assertSameCurrency(Money $other): void
