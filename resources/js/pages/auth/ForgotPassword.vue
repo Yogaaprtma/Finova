@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form, Head } from '@inertiajs/vue3';
+import { Mail } from '@lucide/vue';
 import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,9 @@ import { email } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Forgot password',
-        description: 'Enter your email to receive a password reset link',
+        title: 'Forgot Password',
+        description:
+            'Enter your registered email address to receive password reset instructions',
     },
 });
 
@@ -26,41 +28,58 @@ defineProps<{
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 rounded-xl border border-green-500/20 bg-green-500/10 p-3 text-center text-sm font-medium text-green-500"
     >
         {{ status }}
     </div>
 
-    <div class="space-y-6">
-        <Form v-bind="email.form()" v-slot="{ errors, processing }">
-            <div class="grid gap-2">
-                <Label for="email">Email address</Label>
+    <Form
+        v-bind="email.form()"
+        v-slot="{ errors, processing }"
+        class="space-y-5"
+    >
+        <div class="grid gap-1.5">
+            <Label
+                for="email"
+                class="text-xs font-medium text-foreground sm:text-sm"
+            >
+                Email Address
+            </Label>
+            <div class="relative">
+                <Mail
+                    class="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground"
+                />
                 <Input
                     id="email"
                     type="email"
                     name="email"
                     autocomplete="off"
                     autofocus
-                    placeholder="email@example.com"
+                    placeholder="name@company.com"
+                    class="h-11 rounded-2xl border-border/80 bg-input/40 pl-10 text-sm transition-all placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-blue-500/25 dark:bg-[#131622]/80"
                 />
-                <InputError :message="errors.email" />
             </div>
-
-            <div class="my-6 flex items-center justify-start">
-                <Button
-                    class="w-full"
-                    :disabled="processing"
-                    data-test="email-password-reset-link-button"
-                >
-                    <Spinner v-if="processing" />
-                    Email password reset link
-                </Button>
-            </div>
-        </Form>
-
-        <div class="space-x-1 text-center text-sm text-muted-foreground">
-            <span>Or, return to</span>
-            <TextLink :href="login()">log in</TextLink>
+            <InputError :message="errors.email" />
         </div>
-    </div>
+
+        <Button
+            type="submit"
+            class="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-0 bg-blue-600 font-semibold text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:bg-blue-500 hover:shadow-blue-500/40 active:scale-[0.99]"
+            :disabled="processing"
+            data-test="email-password-reset-link-button"
+        >
+            <Spinner v-if="processing" class="size-4" />
+            <span>Email password reset link</span>
+        </Button>
+
+        <div class="pt-2 text-center text-xs text-muted-foreground sm:text-sm">
+            <span>Remember your password?</span>
+            <TextLink
+                :href="login()"
+                class="ml-1 font-semibold text-blue-600 hover:text-blue-500 dark:text-blue-400"
+            >
+                Return to sign in
+            </TextLink>
+        </div>
+    </Form>
 </template>
