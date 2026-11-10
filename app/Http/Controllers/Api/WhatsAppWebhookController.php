@@ -15,7 +15,7 @@ class WhatsAppWebhookController extends Controller
     public function __construct(
         protected ?MessagingProviderInterface $messagingProvider = null
     ) {
-        $this->messagingProvider = $messagingProvider ?? new FonnteAdapter();
+        $this->messagingProvider = $messagingProvider ?? new FonnteAdapter;
     }
 
     /**
@@ -55,4 +55,3 @@ class WhatsAppWebhookController extends Controller
         ], 200);
     }
 }
-
