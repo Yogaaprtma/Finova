@@ -241,4 +241,3 @@ class LiabilityController extends Controller
             ->with('status', 'Charge / Loan increase recorded successfully.');
     }
 }
-
