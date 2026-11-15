@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
+    ArrowDownLeft,
     ArrowLeft,
-    TrendingUp,
-    TrendingDown,
-    PlusCircle,
-    MinusCircle,
-    RefreshCw,
+    ArrowUpRight,
+    Loader2,
     Pencil,
+    Plus,
+    RefreshCw,
     Trash2,
-    Calendar,
-    Wallet,
-    CheckCircle2,
-    Clock,
+    TrendingDown,
+    TrendingUp,
 } from '@lucide/vue';
 import dayjs from 'dayjs';
+import 'dayjs/locale/id';
 import { computed, ref } from 'vue';
 import MoneyDisplay from '@/components/MoneyDisplay.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
-import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -27,8 +25,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    formatAssetDate,
+    formatAssetQuantity,
+    formatStockShares,
+    getAssetTintStyle,
+    getAssetTypeMeta,
+} from '@/lib/assets';
 
 const props = defineProps<{
     asset: any;
@@ -43,632 +46,1059 @@ const props = defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            {
-                title: 'Portfolio & Assets',
-                href: '/assets',
-            },
-            {
-                title: 'Asset Details',
-                href: '#',
-            },
+            { title: 'Aset & Investasi', href: '/assets' },
+            { title: 'Detail Aset', href: '#' },
         ],
     },
 });
 
-// Modals State
+const typeMeta = computed(() => getAssetTypeMeta(props.asset.type));
+
+const isManualAsset = computed(
+    () =>
+        props.asset.manual_value !== null &&
+        props.asset.manual_value !== undefined,
+);
+
+const isStock = computed(() => props.asset.type === 'stock');
+const stockMultiplier = computed(() => (isStock.value ? 100 : 1));
+
+const formatPnlPercent = (pct: number) => {
+    const abs = Math.abs(pct || 0).toLocaleString('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
+
+    if (pct > 0) {
+        return `+${abs}%`;
+    }
+
+    if (pct < 0) {
+        return `-${abs}%`;
+    }
+
+    return '0%';
+};
+
+const pnlBadgeClass = (pnl: number) => {
+    if (pnl > 0) {
+        return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
+    }
+
+    if (pnl < 0) {
+        return 'bg-rose-500/10 text-rose-700 dark:text-rose-400';
+    }
+
+    return 'bg-muted text-muted-foreground';
+};
+
+// Modals state
 const showPriceModal = ref(false);
 const showBuyModal = ref(false);
 const showSellModal = ref(false);
-const showDeleteConfirm = ref(false);
+const showDeleteModal = ref(false);
+const isDeleting = ref(false);
 
-// Forms
+const quantityStep = computed(() => {
+    if (isStock.value) {
+        return '1';
+    }
+
+    const p = typeMeta.value.precision;
+
+    return p > 0 ? (1 / Math.pow(10, Math.min(p, 8))).toString() : 'any';
+});
+
+const todayDate = () => dayjs().format('YYYY-MM-DD');
+
+// Form 1: Update Harga Pasar
 const priceForm = useForm({
-    current_price: props.asset.current_price,
+    current_price: Number(props.asset.current_price || 0),
 });
 
-const buyForm = useForm({
-    source_account_id: props.accounts[0]?.id || '',
-    quantity: undefined as number | undefined,
-    price_per_unit: props.asset.current_price || null,
-    fees: 0,
-    date: dayjs().format('YYYY-MM-DD'),
-    notes: '',
-});
+const openPriceModal = () => {
+    priceForm.clearErrors();
+    priceForm.current_price = Number(props.asset.current_price || 0);
+    showPriceModal.value = true;
+};
 
-const sellForm = useForm({
-    destination_account_id: props.accounts[0]?.id || '',
-    quantity: undefined as number | undefined,
-    price_per_unit: props.asset.current_price || null,
-    fees: 0,
-    date: dayjs().format('YYYY-MM-DD'),
-    notes: '',
-});
+const previewNewMarketValue = computed(() =>
+    Math.round(
+        Number(props.asset.quantity || 0) *
+            stockMultiplier.value *
+            (priceForm.current_price || 0),
+    ),
+);
 
-const estimatedBuyTotal = computed(() => {
-    const q = Number(buyForm.quantity) || 0;
-    const p = Number(buyForm.price_per_unit) || 0;
-    const f = Number(buyForm.fees) || 0;
-    const multiplier = props.asset.type === 'stock' ? 100 : 1;
-
-    return Math.round(q * p * multiplier) + f;
-});
-
-const estimatedSellNet = computed(() => {
-    const q = Number(sellForm.quantity) || 0;
-    const p = Number(sellForm.price_per_unit) || 0;
-    const f = Number(sellForm.fees) || 0;
-    const multiplier = props.asset.type === 'stock' ? 100 : 1;
-
-    return Math.max(0, Math.round(q * p * multiplier) - f);
-});
-
-const submitPriceUpdate = () => {
+const submitPrice = () => {
     priceForm.patch(`/assets/${props.asset.id}/price`, {
+        preserveScroll: true,
         onSuccess: () => {
             showPriceModal.value = false;
         },
     });
 };
 
+// Form 2: Beli / Tambah Kepemilikan
+const buyForm = useForm({
+    source_account_id: props.accounts?.[0]?.id || '',
+    quantity: '' as number | string,
+    price_per_unit: Number(props.asset.current_price || 0),
+    fees: 0,
+    date: todayDate(),
+    description: '',
+    notes: '',
+});
+
+const openBuyModal = () => {
+    buyForm.clearErrors();
+    buyForm.source_account_id = props.accounts?.[0]?.id || '';
+    buyForm.quantity = '';
+    buyForm.price_per_unit = Number(props.asset.current_price || 0);
+    buyForm.fees = 0;
+    buyForm.date = todayDate();
+    buyForm.notes = '';
+    showBuyModal.value = true;
+};
+
+const buySubtotal = computed(() => {
+    const qty = Number(buyForm.quantity || 0);
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+        return 0;
+    }
+
+    return Math.round(
+        qty * stockMultiplier.value * (buyForm.price_per_unit || 0),
+    );
+});
+
+const buyGrandTotal = computed(() => buySubtotal.value + (buyForm.fees || 0));
+
 const submitBuy = () => {
     buyForm.post(`/assets/${props.asset.id}/buy`, {
+        preserveScroll: true,
         onSuccess: () => {
             showBuyModal.value = false;
-            buyForm.reset('quantity', 'notes');
         },
     });
 };
+
+// Form 3: Jual / Cairkan Aset
+const sellForm = useForm({
+    destination_account_id: props.accounts?.[0]?.id || '',
+    quantity: '' as number | string,
+    price_per_unit: Number(props.asset.current_price || 0),
+    fees: 0,
+    date: todayDate(),
+    description: '',
+    notes: '',
+});
+
+const openSellModal = () => {
+    sellForm.clearErrors();
+    sellForm.destination_account_id = props.accounts?.[0]?.id || '';
+    sellForm.quantity = '';
+    sellForm.price_per_unit = Number(props.asset.current_price || 0);
+    sellForm.fees = 0;
+    sellForm.date = todayDate();
+    sellForm.notes = '';
+    showSellModal.value = true;
+};
+
+const fillMaxSellQuantity = () => {
+    sellForm.quantity = Number(props.asset.quantity || 0);
+};
+
+const sellGrossTotal = computed(() => {
+    const qty = Number(sellForm.quantity || 0);
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+        return 0;
+    }
+
+    return Math.round(
+        qty * stockMultiplier.value * (sellForm.price_per_unit || 0),
+    );
+});
+
+const sellNetProceeds = computed(() =>
+    Math.max(0, sellGrossTotal.value - (sellForm.fees || 0)),
+);
 
 const submitSell = () => {
     sellForm.post(`/assets/${props.asset.id}/sell`, {
+        preserveScroll: true,
         onSuccess: () => {
             showSellModal.value = false;
-            sellForm.reset('quantity', 'notes');
         },
     });
 };
 
-const executeDelete = () => {
-    router.delete(`/assets/${props.asset.id}`);
+// Delete asset
+const confirmDelete = () => {
+    isDeleting.value = true;
+    router.delete(`/assets/${props.asset.id}`, {
+        onFinish: () => {
+            isDeleting.value = false;
+        },
+    });
 };
 
-const formatDate = (dateStr: string) => {
-    return dayjs(dateStr).format('D MMM YYYY');
-};
+const transactions = computed<any[]>(() => props.asset.transactions ?? []);
 </script>
 
 <template>
-    <Head :title="`${asset.name} - Asset Details`" />
+    <Head :title="asset.name" />
 
     <div
-        class="mx-auto flex h-full w-full max-w-6xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
+        class="mx-auto flex h-full w-full max-w-5xl flex-1 flex-col gap-5 p-4 md:p-6 lg:gap-6 lg:p-8"
     >
-        <!-- Top Back & Action Bar -->
+        <!-- Header & Actions -->
         <div
-            class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
+            class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"
         >
-            <div>
+            <div class="flex min-w-0 items-start gap-3">
                 <Link
                     href="/assets"
-                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                    aria-label="Kembali ke daftar aset"
+                    class="mt-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:size-9"
                 >
-                    <ArrowLeft class="h-3.5 w-3.5" />
-                    Back to Portfolio
+                    <ArrowLeft class="size-4" aria-hidden="true" />
                 </Link>
-                <div class="mt-2 flex items-center gap-3">
-                    <h1 class="text-3xl font-bold tracking-tight">
-                        {{ asset.name }}
-                    </h1>
-                    <span
-                        v-if="asset.ticker"
-                        class="rounded-lg bg-primary/10 px-2.5 py-1 font-mono text-sm font-bold text-primary"
-                    >
-                        {{ asset.ticker }}
-                    </span>
-                    <span
-                        class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground uppercase"
-                    >
-                        {{ asset.type }}
-                    </span>
-                </div>
-                <p
-                    v-if="asset.platform"
-                    class="mt-1 text-xs text-muted-foreground"
+
+                <div
+                    class="flex size-11 shrink-0 items-center justify-center rounded-xl sm:size-12"
+                    :style="getAssetTintStyle(typeMeta.tint)"
                 >
-                    Managed on
-                    <span class="font-medium text-foreground">{{
-                        asset.platform
-                    }}</span>
-                </p>
+                    <component
+                        :is="typeMeta.icon"
+                        class="size-5 sm:size-6"
+                        aria-hidden="true"
+                    />
+                </div>
+
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1
+                            class="truncate text-2xl font-semibold tracking-tight"
+                        >
+                            {{ asset.name }}
+                        </h1>
+                        <span
+                            v-if="asset.ticker"
+                            class="inline-flex items-center rounded border bg-card px-2 py-0.5 font-mono text-xs font-medium text-muted-foreground uppercase"
+                        >
+                            {{ asset.ticker }}
+                        </span>
+                        <span
+                            v-if="!asset.is_active"
+                            class="inline-flex items-center rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                        >
+                            Nonaktif
+                        </span>
+                    </div>
+
+                    <p class="mt-0.5 text-sm text-muted-foreground">
+                        {{ typeMeta.label }}
+                        <span v-if="asset.platform">
+                            · {{ asset.platform }}
+                        </span>
+                        <span> · {{ asset.currency }}</span>
+                    </p>
+                </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex flex-wrap items-center gap-2">
-                <Button
-                    v-if="asset.manual_value === null"
-                    type="button"
-                    variant="outline"
-                    class="gap-1.5 rounded-xl border-border/80"
-                    @click="showPriceModal = true"
-                >
-                    <RefreshCw class="h-4 w-4" />
-                    Update Market Price
-                </Button>
+            <div
+                class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center lg:justify-end"
+            >
+                <template v-if="!isManualAsset">
+                    <button
+                        type="button"
+                        @click="openPriceModal"
+                        class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:h-9"
+                    >
+                        <RefreshCw class="size-4" aria-hidden="true" />
+                        Perbarui Harga
+                    </button>
 
-                <Button
-                    v-if="asset.manual_value === null"
-                    type="button"
-                    class="gap-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500"
-                    @click="showBuyModal = true"
-                >
-                    <PlusCircle class="h-4 w-4" />
-                    Buy / Add
-                </Button>
+                    <button
+                        type="button"
+                        @click="openBuyModal"
+                        class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-input bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:h-9"
+                    >
+                        <Plus
+                            class="size-4 text-emerald-600"
+                            aria-hidden="true"
+                        />
+                        Beli
+                    </button>
 
-                <Button
-                    v-if="asset.manual_value === null"
-                    type="button"
-                    variant="outline"
-                    :disabled="Number(asset.quantity) <= 0"
-                    class="gap-1.5 rounded-xl border-rose-500/30 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                    @click="showSellModal = true"
-                >
-                    <MinusCircle class="h-4 w-4" />
-                    Sell / Liquidate
-                </Button>
+                    <button
+                        type="button"
+                        :disabled="Number(asset.quantity || 0) <= 0"
+                        @click="openSellModal"
+                        class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-input bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 sm:h-9"
+                    >
+                        <ArrowUpRight
+                            class="size-4 text-rose-600"
+                            aria-hidden="true"
+                        />
+                        Jual
+                    </button>
+                </template>
 
                 <Link
                     :href="`/assets/${asset.id}/edit`"
-                    class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-input bg-background px-3 text-xs font-medium shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+                    class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-input bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:h-9"
                 >
-                    <Pencil class="h-3.5 w-3.5" />
-                    Edit
+                    <Pencil class="size-4" aria-hidden="true" />
+                    {{ isManualAsset ? 'Perbarui / Edit' : 'Edit' }}
                 </Link>
 
-                <Button
+                <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    class="rounded-xl text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
-                    @click="showDeleteConfirm = true"
+                    @click="showDeleteModal = true"
+                    class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-card px-3.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:h-9 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40"
                 >
-                    <Trash2 class="h-4 w-4" />
-                </Button>
+                    <Trash2 class="size-4" aria-hidden="true" />
+                    Hapus
+                </button>
             </div>
         </div>
 
-        <!-- Metric Stat Cards -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <!-- Current Total Value -->
-            <div class="rounded-2xl border bg-card p-5 shadow-sm">
-                <span
-                    class="text-xs font-medium text-muted-foreground uppercase"
-                >
-                    Current Total Value
-                </span>
-                <div class="mt-2 text-2xl font-extrabold tracking-tight">
-                    <MoneyDisplay :amount="asset.current_value" />
-                </div>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    Based on latest valuation
-                </p>
-            </div>
-
-            <!-- Total Cost Basis -->
-            <div class="rounded-2xl border bg-card p-5 shadow-sm">
-                <span
-                    class="text-xs font-medium text-muted-foreground uppercase"
-                >
-                    Invested Capital (Cost Basis)
-                </span>
-                <div class="mt-2 text-2xl font-extrabold tracking-tight">
-                    <MoneyDisplay :amount="asset.cost_basis" />
-                </div>
-                <p class="mt-2 text-xs text-muted-foreground">
-                    Weighted average buy cost
-                </p>
-            </div>
-
-            <!-- Unrealized P/L -->
-            <div class="rounded-2xl border bg-card p-5 shadow-sm">
-                <span
-                    class="text-xs font-medium text-muted-foreground uppercase"
-                >
-                    Unrealized Gain / Loss
-                </span>
-                <div
-                    :class="[
-                        'mt-2 flex items-center gap-2 text-2xl font-extrabold tracking-tight',
-                        asset.unrealized_pnl >= 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400',
-                    ]"
-                >
-                    <TrendingUp
-                        v-if="asset.unrealized_pnl >= 0"
-                        class="h-6 w-6"
-                    />
-                    <TrendingDown v-else class="h-6 w-6" />
-                    <MoneyDisplay :amount="asset.unrealized_pnl" />
-                </div>
-                <p
-                    :class="[
-                        'mt-2 text-xs font-semibold',
-                        asset.unrealized_pnl >= 0
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-rose-600 dark:text-rose-400',
-                    ]"
-                >
-                    {{ asset.unrealized_pnl >= 0 ? '+' : ''
-                    }}{{ asset.unrealized_pnl_percentage }}% return
-                </p>
-            </div>
-
-            <!-- Holdings / Price Details -->
-            <div class="rounded-2xl border bg-card p-5 shadow-sm">
-                <div v-if="asset.manual_value === null">
-                    <span
-                        class="text-xs font-medium text-muted-foreground uppercase"
-                    >
-                        Current Holdings
-                    </span>
-                    <div class="mt-2 text-2xl font-extrabold tracking-tight">
-                        {{ asset.quantity }}
-                        <span class="text-sm font-normal text-muted-foreground">
-                            {{ asset.type === 'stock' ? 'lots' : 'units' }}
-                        </span>
-                    </div>
-                    <p class="mt-2 text-xs text-muted-foreground">
-                        <span v-if="asset.type === 'stock'">
-                            ({{
-                                new Intl.NumberFormat('id-ID').format(
-                                    Number(asset.quantity) * 100,
-                                )
-                            }}
-                            lembar) @ Rp
-                            {{
-                                new Intl.NumberFormat('id-ID').format(
-                                    Number(asset.current_price),
-                                )
-                            }}
-                            / lembar
-                        </span>
-                        <span v-else>
-                            @
-                            <MoneyDisplay :amount="asset.current_price" /> /
-                            unit
-                        </span>
-                    </p>
-                </div>
-                <div v-else>
-                    <span
-                        class="text-xs font-medium text-muted-foreground uppercase"
-                    >
-                        Valuation Mode
-                    </span>
-                    <div class="mt-2 text-xl font-bold tracking-tight">
-                        Manual / Fixed
-                    </div>
-                    <p class="mt-2 text-xs text-muted-foreground">
-                        Physical &amp; fixed asset
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Notes Card if available -->
-        <div
-            v-if="asset.notes"
-            class="rounded-2xl border bg-card p-5 shadow-sm"
+        <!-- Asset Value & Hairline Stat Card -->
+        <section
+            aria-label="Ringkasan nilai aset"
+            class="@container overflow-hidden rounded-xl border bg-card"
         >
-            <h4
-                class="text-xs font-bold tracking-wider text-muted-foreground uppercase"
+            <div class="p-5 sm:p-6">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2
+                        class="text-xs font-medium tracking-wider text-muted-foreground uppercase"
+                    >
+                        {{
+                            isManualAsset
+                                ? 'Nilai Taksiran Saat Ini'
+                                : 'Nilai Pasar Saat Ini'
+                        }}
+                    </h2>
+                    <span class="text-xs text-muted-foreground">
+                        Diperbarui:
+                        {{ formatAssetDate(asset.last_price_update, true) }}
+                    </span>
+                </div>
+
+                <p
+                    class="mt-2.5 text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl"
+                >
+                    <MoneyDisplay
+                        :amount="asset.current_value"
+                        :currency="asset.currency"
+                    />
+                </p>
+
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <span
+                        class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium tabular-nums"
+                        :class="pnlBadgeClass(asset.unrealized_pnl)"
+                    >
+                        <component
+                            :is="
+                                asset.unrealized_pnl >= 0
+                                    ? TrendingUp
+                                    : TrendingDown
+                            "
+                            class="size-3.5"
+                            aria-hidden="true"
+                        />
+                        <MoneyDisplay
+                            :amount="asset.unrealized_pnl"
+                            :currency="asset.currency"
+                            show-sign
+                        />
+                        <span>
+                            ({{
+                                formatPnlPercent(
+                                    asset.unrealized_pnl_percentage,
+                                )
+                            }})
+                        </span>
+                    </span>
+                    <span class="text-xs text-muted-foreground">
+                        Selisih terhadap total modal
+                    </span>
+                </div>
+            </div>
+
+            <!-- 4-Cell Hairline Strip -->
+            <div
+                class="grid grid-cols-1 gap-px border-t bg-border @md:grid-cols-2 @xl:grid-cols-4"
             >
-                Notes &amp; Strategy
-            </h4>
-            <p class="mt-2 text-sm whitespace-pre-wrap text-foreground/90">
+                <template v-if="!isManualAsset">
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Kepemilikan
+                        </p>
+                        <p
+                            class="mt-1 text-base font-semibold tracking-tight tabular-nums"
+                        >
+                            {{
+                                formatAssetQuantity(asset.quantity, asset.type)
+                            }}
+                        </p>
+                        <p
+                            v-if="isStock"
+                            class="mt-0.5 text-xs text-muted-foreground tabular-nums"
+                        >
+                            {{ formatStockShares(asset.quantity) }}
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Harga Beli Rata-rata
+                        </p>
+                        <p
+                            class="mt-1 text-base font-semibold tracking-tight tabular-nums"
+                        >
+                            <MoneyDisplay
+                                :amount="asset.avg_purchase_price"
+                                :currency="asset.currency"
+                            />
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            {{ typeMeta.priceUnitHint }}
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Harga Pasar Terkini
+                        </p>
+                        <p
+                            class="mt-1 text-base font-semibold tracking-tight tabular-nums"
+                        >
+                            <MoneyDisplay
+                                :amount="asset.current_price"
+                                :currency="asset.currency"
+                            />
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            {{ typeMeta.priceUnitHint }}
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Total Modal (Cost Basis)
+                        </p>
+                        <p
+                            class="mt-1 text-base font-semibold tracking-tight tabular-nums"
+                        >
+                            <MoneyDisplay
+                                :amount="asset.cost_basis"
+                                :currency="asset.currency"
+                            />
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            Akumulasi pembelian bersih
+                        </p>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Metode Penilaian
+                        </p>
+                        <p class="mt-1 text-base font-semibold">Manual</p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            {{ typeMeta.label }}
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Modal Awal
+                        </p>
+                        <p
+                            class="mt-1 text-base font-semibold tracking-tight tabular-nums"
+                        >
+                            <MoneyDisplay
+                                :amount="asset.cost_basis"
+                                :currency="asset.currency"
+                            />
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            Harga perolehan tercatat
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Status
+                        </p>
+                        <p class="mt-1 text-base font-semibold">
+                            {{ asset.is_active ? 'Aktif' : 'Nonaktif' }}
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            {{
+                                asset.is_active
+                                    ? 'Masuk perhitungan aset'
+                                    : 'Dikecualikan dari portofolio'
+                            }}
+                        </p>
+                    </div>
+
+                    <div class="bg-card px-5 py-3.5">
+                        <p class="text-xs font-medium text-muted-foreground">
+                            Dicatat Sejak
+                        </p>
+                        <p class="mt-1 text-base font-semibold">
+                            {{ formatAssetDate(asset.created_at) }}
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">
+                            Tanggal entri awal
+                        </p>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <!-- Catatan Aset -->
+        <section
+            v-if="asset.notes"
+            aria-label="Catatan aset"
+            class="rounded-xl border bg-card p-5 sm:p-6"
+        >
+            <h2 class="text-sm font-semibold text-foreground">Catatan Aset</h2>
+            <p
+                class="mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground"
+            >
                 {{ asset.notes }}
             </p>
-        </div>
+        </section>
 
-        <!-- Transaction History -->
-        <div class="rounded-2xl border bg-card p-5 shadow-sm">
-            <div class="flex items-center justify-between">
+        <!-- Riwayat Transaksi Aset -->
+        <section
+            v-if="!isManualAsset || transactions.length > 0"
+            aria-labelledby="riwayat-transaksi-heading"
+            class="overflow-hidden rounded-xl border bg-card"
+        >
+            <div
+                class="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-4 sm:px-6"
+            >
                 <div>
-                    <h3 class="text-base font-bold tracking-tight">
-                        Trade History
-                    </h3>
+                    <h2
+                        id="riwayat-transaksi-heading"
+                        class="text-base font-semibold tracking-tight"
+                    >
+                        Riwayat Transaksi Aset
+                    </h2>
                     <p class="text-xs text-muted-foreground">
-                        Recorded buy and sell transactions for this asset
+                        Catatan pembelian dan penjualan unit yang terhubung
+                        dengan rekening kas Anda.
                     </p>
                 </div>
+                <span
+                    class="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground tabular-nums"
+                >
+                    {{ transactions.length }} transaksi
+                </span>
             </div>
 
-            <div
-                v-if="asset.transactions && asset.transactions.length > 0"
-                class="mt-5 divide-y divide-border/60"
-            >
+            <div v-if="transactions.length > 0" class="divide-y">
                 <div
-                    v-for="tx in asset.transactions"
+                    v-for="tx in transactions"
                     :key="tx.id"
-                    class="flex flex-col items-start justify-between gap-3 py-3.5 sm:flex-row sm:items-center"
+                    class="flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6"
                 >
-                    <div class="flex items-center gap-3">
-                        <span
-                            :class="[
-                                'inline-flex items-center justify-center rounded-xl p-2 text-xs font-bold uppercase',
+                    <div class="flex min-w-0 items-start gap-3">
+                        <div
+                            class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg"
+                            :class="
                                 tx.type === 'buy'
                                     ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-                            ]"
+                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                            "
                         >
-                            {{ tx.type }}
-                        </span>
-                        <div>
-                            <p class="text-sm font-semibold text-foreground">
-                                {{ tx.quantity }} units @
-                                <MoneyDisplay :amount="tx.price_per_unit" />
-                            </p>
-                            <div
-                                class="flex items-center gap-2 text-xs text-muted-foreground"
-                            >
-                                <span class="flex items-center gap-1">
-                                    <Clock class="h-3 w-3" />
-                                    {{ formatDate(tx.created_at) }}
+                            <component
+                                :is="
+                                    tx.type === 'buy'
+                                        ? ArrowDownLeft
+                                        : ArrowUpRight
+                                "
+                                class="size-4"
+                                aria-hidden="true"
+                            />
+                        </div>
+
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span
+                                    class="text-sm font-semibold text-foreground"
+                                >
+                                    {{
+                                        tx.type === 'buy'
+                                            ? 'Pembelian Aset'
+                                            : 'Penjualan Aset'
+                                    }}
                                 </span>
-                                <span v-if="tx.fees > 0">
-                                    • Fees: <MoneyDisplay :amount="tx.fees" />
+                                <span
+                                    class="text-xs text-muted-foreground tabular-nums"
+                                >
+                                    {{
+                                        formatAssetDate(
+                                            tx.transaction?.date ||
+                                                tx.created_at,
+                                        )
+                                    }}
                                 </span>
                             </div>
+
+                            <p
+                                class="mt-0.5 text-xs text-muted-foreground tabular-nums"
+                            >
+                                {{
+                                    formatAssetQuantity(tx.quantity, asset.type)
+                                }}
+                                @
+                                <MoneyDisplay
+                                    :amount="tx.price_per_unit"
+                                    :currency="asset.currency"
+                                />
+                                <template v-if="tx.fees > 0">
+                                    · Biaya:
+                                    <MoneyDisplay
+                                        :amount="tx.fees"
+                                        :currency="asset.currency"
+                                    />
+                                </template>
+                            </p>
+
+                            <p
+                                v-if="tx.notes || tx.transaction?.description"
+                                class="mt-1 truncate text-xs text-muted-foreground"
+                            >
+                                {{ tx.notes || tx.transaction?.description }}
+                            </p>
                         </div>
                     </div>
 
-                    <div class="text-right">
-                        <span class="text-sm font-bold tabular-nums">
-                            <MoneyDisplay :amount="tx.total_amount" />
-                        </span>
-                        <p class="text-[10px] text-muted-foreground uppercase">
+                    <div class="shrink-0 pl-12 text-left sm:pl-0 sm:text-right">
+                        <p
+                            class="text-sm font-semibold tabular-nums sm:text-base"
+                            :class="
+                                tx.type === 'buy'
+                                    ? 'text-foreground'
+                                    : 'text-emerald-600 dark:text-emerald-400'
+                            "
+                        >
+                            <MoneyDisplay
+                                :amount="tx.total_amount"
+                                :currency="asset.currency"
+                            />
+                        </p>
+                        <p class="text-[11px] text-muted-foreground">
                             {{
                                 tx.type === 'buy'
-                                    ? 'Total Cost'
-                                    : 'Net Proceeds'
+                                    ? 'Total Dana Keluar'
+                                    : 'Dana Bersih Masuk'
                             }}
                         </p>
                     </div>
                 </div>
             </div>
 
-            <div v-else class="py-10 text-center text-xs text-muted-foreground">
-                No buy or sell trades recorded yet. Use the "Buy / Add" button
-                to record your first transaction.
+            <div v-else class="px-6 py-10 text-center">
+                <p class="text-sm font-medium text-foreground">
+                    Belum ada riwayat beli atau jual
+                </p>
+                <p class="mt-1 text-xs text-muted-foreground">
+                    Gunakan tombol Beli atau Jual di atas untuk mencatat
+                    transaksi portofolio yang terhubung ke saldo rekening.
+                </p>
             </div>
-        </div>
+        </section>
 
-        <!-- Modal 1: Quick Price Update -->
+        <!-- Dialog 1: Perbarui Harga Pasar -->
         <Dialog v-model:open="showPriceModal">
-            <DialogContent class="rounded-2xl sm:max-w-md">
+            <DialogContent class="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Update Market Price</DialogTitle>
+                    <DialogTitle>Perbarui Harga Pasar</DialogTitle>
                     <DialogDescription>
-                        Set the latest known market price per unit for
-                        {{ asset.name }}.
+                        Sesuaikan harga pasar terkini ({{
+                            typeMeta.priceUnitHint
+                        }}) untuk <strong>{{ asset.name }}</strong> agar
+                        kalkulasi nilai portofolio tetap akurat.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form
-                    @submit.prevent="submitPriceUpdate"
-                    class="space-y-4 py-2"
-                >
-                    <div class="space-y-1.5">
-                        <Label for="update_price">
-                            {{
-                                asset.type === 'stock'
-                                    ? 'New Market Price (Per Lembar)'
-                                    : 'New Market Price (IDR)'
-                            }}
-                        </Label>
+                <form @submit.prevent="submitPrice" class="space-y-4">
+                    <div>
+                        <label
+                            for="update-price-input"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Harga Pasar Baru ({{ typeMeta.priceUnitHint }})
+                        </label>
                         <MoneyInput
-                            id="update_price"
+                            id="update-price-input"
                             v-model="priceForm.current_price"
-                            :allow-decimal="true"
-                            :max-decimals="4"
-                            placeholder="0"
+                            :currency="asset.currency"
                             required
                         />
+                        <p
+                            v-if="priceForm.errors.current_price"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ priceForm.errors.current_price }}
+                        </p>
                     </div>
 
-                    <DialogFooter class="gap-2 sm:gap-0">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            @click="showPriceModal = false"
+                    <div
+                        class="flex items-center justify-between rounded-lg border px-3.5 py-2.5 text-xs"
+                    >
+                        <span class="text-muted-foreground">
+                            Estimasi Nilai Baru ({{
+                                formatAssetQuantity(asset.quantity, asset.type)
+                            }})
+                        </span>
+                        <span
+                            class="font-semibold text-foreground tabular-nums"
                         >
-                            Cancel
-                        </Button>
-                        <Button type="submit" :disabled="priceForm.processing">
-                            Save Price
-                        </Button>
+                            <MoneyDisplay
+                                :amount="previewNewMarketValue"
+                                :currency="asset.currency"
+                            />
+                        </span>
+                    </div>
+
+                    <DialogFooter>
+                        <button
+                            type="button"
+                            @click="showPriceModal = false"
+                            class="inline-flex h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground hover:bg-accent sm:h-9"
+                        >
+                            Batal
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="priceForm.processing"
+                            class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 sm:h-9"
+                        >
+                            <Loader2
+                                v-if="priceForm.processing"
+                                class="size-4 animate-spin"
+                                aria-hidden="true"
+                            />
+                            {{
+                                priceForm.processing
+                                    ? 'Menyimpan...'
+                                    : 'Simpan Harga'
+                            }}
+                        </button>
                     </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>
 
-        <!-- Modal 2: Buy / Add Asset -->
+        <!-- Dialog 2: Beli / Tambah Kepemilikan -->
         <Dialog v-model:open="showBuyModal">
-            <DialogContent class="rounded-2xl sm:max-w-lg">
+            <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Buy / Add {{ asset.name }}</DialogTitle>
+                    <DialogTitle>Beli {{ asset.name }}</DialogTitle>
                     <DialogDescription>
-                        Record a purchase. Funds will be deducted from your
-                        chosen cash/bank account.
+                        Penambahan kepemilikan akan memperbarui harga beli
+                        rata-rata secara otomatis dan memotong saldo rekening
+                        sumber.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form @submit.prevent="submitBuy" class="space-y-4 py-2">
-                    <!-- Source Account -->
-                    <div class="space-y-1.5">
-                        <Label for="source_account"
-                            >Pay from Cash / Bank Account *</Label
+                <div
+                    v-if="accounts.length === 0"
+                    class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                >
+                    <p class="font-medium">Belum ada rekening kas/bank aktif</p>
+                    <p class="mt-1 text-xs opacity-90">
+                        Buat rekening sumber dana terlebih dahulu sebelum
+                        mencatat transaksi pembelian aset.
+                    </p>
+                    <Link
+                        href="/accounts/create"
+                        class="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground"
+                    >
+                        Tambah Rekening Sekarang
+                    </Link>
+                </div>
+
+                <form v-else @submit.prevent="submitBuy" class="space-y-4">
+                    <div>
+                        <label
+                            for="buy-source-account"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
                         >
+                            Sumber Dana (Rekening)
+                            <span class="text-destructive">*</span>
+                        </label>
                         <select
-                            id="source_account"
+                            id="buy-source-account"
                             v-model="buyForm.source_account_id"
                             required
-                            class="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:ring-1 focus-visible:ring-ring"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                         >
                             <option
                                 v-for="acc in accounts"
                                 :key="acc.id"
                                 :value="acc.id"
                             >
-                                {{ acc.name }} (Saldo: Rp
+                                {{ acc.name }} (Saldo:
                                 {{
-                                    acc.current_balance.toLocaleString('id-ID')
+                                    new Intl.NumberFormat('id-ID', {
+                                        style: 'currency',
+                                        currency: 'IDR',
+                                        maximumFractionDigits: 0,
+                                    }).format(acc.current_balance)
                                 }})
                             </option>
                         </select>
+                        <p
+                            v-if="buyForm.errors.source_account_id"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ buyForm.errors.source_account_id }}
+                        </p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-1.5">
-                            <Label for="buy_qty">
-                                {{
-                                    asset.type === 'stock'
-                                        ? 'Quantity (Lots) *'
-                                        : 'Quantity *'
-                                }}
-                            </Label>
-                            <Input
-                                id="buy_qty"
-                                v-model.number="buyForm.quantity"
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label
+                                for="buy-quantity"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Jumlah ({{ typeMeta.unitLabel }})
+                                <span class="text-destructive">*</span>
+                            </label>
+                            <input
+                                id="buy-quantity"
+                                v-model="buyForm.quantity"
                                 type="number"
-                                step="any"
-                                min="0.00000001"
-                                placeholder="0"
+                                inputmode="decimal"
+                                :step="quantityStep"
+                                min="0"
                                 required
-                                class="rounded-xl"
+                                placeholder="0"
+                                class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                             />
                             <p
-                                v-if="
-                                    asset.type === 'stock' && buyForm.quantity
-                                "
-                                class="text-[10px] text-muted-foreground"
+                                v-if="isStock && Number(buyForm.quantity) > 0"
+                                class="mt-1 text-xs text-muted-foreground tabular-nums"
                             >
-                                =
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        Number(buyForm.quantity) * 100,
-                                    )
-                                }}
-                                lembar
+                                = {{ formatStockShares(buyForm.quantity) }}
                             </p>
                             <p
-                                v-if="
-                                    asset.type === 'stock' && buyForm.quantity
-                                "
-                                class="text-[10px] text-muted-foreground"
+                                v-if="buyForm.errors.quantity"
+                                class="mt-1 text-xs text-destructive"
                             >
-                                =
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        Number(buyForm.quantity) * 100,
-                                    )
-                                }}
-                                lembar
+                                {{ buyForm.errors.quantity }}
                             </p>
                         </div>
-                        <div class="space-y-1.5">
-                            <Label for="buy_price">
-                                {{
-                                    asset.type === 'stock'
-                                        ? 'Price Per Lembar *'
-                                        : 'Price Per Unit *'
-                                }}
-                            </Label>
+
+                        <div>
+                            <label
+                                for="buy-price"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Harga Beli ({{ typeMeta.priceUnitHint }})
+                                <span class="text-destructive">*</span>
+                            </label>
                             <MoneyInput
-                                id="buy_price"
+                                id="buy-price"
                                 v-model="buyForm.price_per_unit"
-                                :allow-decimal="true"
-                                :max-decimals="4"
-                                placeholder="0"
+                                :currency="asset.currency"
                                 required
                             />
+                            <p
+                                v-if="buyForm.errors.price_per_unit"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ buyForm.errors.price_per_unit }}
+                            </p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-1.5">
-                            <Label for="buy_fees">Transaction Fees</Label>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label
+                                for="buy-fees"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Biaya Admin / Broker
+                            </label>
                             <MoneyInput
-                                id="buy_fees"
+                                id="buy-fees"
                                 v-model="buyForm.fees"
+                                :currency="asset.currency"
                                 placeholder="0"
                             />
+                            <p
+                                v-if="buyForm.errors.fees"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ buyForm.errors.fees }}
+                            </p>
                         </div>
-                        <div class="space-y-1.5">
-                            <Label for="buy_date">Transaction Date</Label>
-                            <Input
-                                id="buy_date"
+
+                        <div>
+                            <label
+                                for="buy-date"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Tanggal Transaksi
+                                <span class="text-destructive">*</span>
+                            </label>
+                            <input
+                                id="buy-date"
                                 v-model="buyForm.date"
                                 type="date"
                                 required
-                                class="rounded-xl"
+                                class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                             />
+                            <p
+                                v-if="buyForm.errors.date"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ buyForm.errors.date }}
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Live Calculation Summary -->
-                    <div
-                        class="flex items-center justify-between rounded-xl bg-muted/50 p-3 text-xs font-medium"
-                    >
-                        <span class="text-muted-foreground"
-                            >Estimated Total Deducted:</span
+                    <div>
+                        <label
+                            for="buy-notes"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
                         >
-                        <span class="text-sm font-bold text-foreground">
-                            <MoneyDisplay :amount="estimatedBuyTotal" />
-                        </span>
+                            Catatan (Opsional)
+                        </label>
+                        <input
+                            id="buy-notes"
+                            v-model="buyForm.notes"
+                            type="text"
+                            placeholder="cth. Cicilan rutin bulanan (DCA)"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
+                        />
                     </div>
 
-                    <DialogFooter class="gap-2 sm:gap-0">
-                        <Button
+                    <!-- Summary Box -->
+                    <div class="space-y-1.5 rounded-xl border p-3.5 text-xs">
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">
+                                Subtotal Aset
+                            </span>
+                            <span class="font-medium tabular-nums">
+                                <MoneyDisplay
+                                    :amount="buySubtotal"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">
+                                Biaya Transaksi
+                            </span>
+                            <span class="font-medium tabular-nums">
+                                <MoneyDisplay
+                                    :amount="buyForm.fees || 0"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                        <div
+                            class="flex items-center justify-between border-t pt-2 text-sm font-semibold"
+                        >
+                            <span>Total Didebit dari Rekening</span>
+                            <span class="tabular-nums">
+                                <MoneyDisplay
+                                    :amount="buyGrandTotal"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <button
                             type="button"
-                            variant="outline"
                             @click="showBuyModal = false"
+                            class="inline-flex h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground hover:bg-accent sm:h-9"
                         >
-                            Cancel
-                        </Button>
-                        <Button
+                            Batal
+                        </button>
+                        <button
                             type="submit"
-                            class="bg-emerald-600 text-white hover:bg-emerald-500"
                             :disabled="buyForm.processing"
+                            class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 sm:h-9"
                         >
-                            Confirm Purchase
-                        </Button>
+                            <Loader2
+                                v-if="buyForm.processing"
+                                class="size-4 animate-spin"
+                                aria-hidden="true"
+                            />
+                            {{
+                                buyForm.processing
+                                    ? 'Memproses...'
+                                    : 'Konfirmasi Pembelian'
+                            }}
+                        </button>
                     </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>
 
-        <!-- Modal 3: Sell Asset -->
+        <!-- Dialog 3: Jual / Cairkan Aset -->
         <Dialog v-model:open="showSellModal">
-            <DialogContent class="rounded-2xl sm:max-w-lg">
+            <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Sell / Liquidate {{ asset.name }}</DialogTitle>
+                    <DialogTitle>Jual {{ asset.name }}</DialogTitle>
                     <DialogDescription>
-                        Record a sale. Proceeds will be credited to your chosen
-                        cash/bank account.
+                        Hasil penjualan bersih akan langsung ditambahkan ke
+                        saldo rekening tujuan pilihan Anda.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form @submit.prevent="submitSell" class="space-y-4 py-2">
-                    <!-- Destination Account -->
-                    <div class="space-y-1.5">
-                        <Label for="dest_account">Deposit Proceeds To *</Label>
+                <div
+                    v-if="accounts.length === 0"
+                    class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                >
+                    <p class="font-medium">Belum ada rekening tujuan aktif</p>
+                    <p class="mt-1 text-xs opacity-90">
+                        Buat rekening tujuan terlebih dahulu untuk menerima dana
+                        hasil penjualan aset.
+                    </p>
+                    <Link
+                        href="/accounts/create"
+                        class="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground"
+                    >
+                        Tambah Rekening Sekarang
+                    </Link>
+                </div>
+
+                <form v-else @submit.prevent="submitSell" class="space-y-4">
+                    <div>
+                        <label
+                            for="sell-destination-account"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Rekening Tujuan Dana
+                            <span class="text-destructive">*</span>
+                        </label>
                         <select
-                            id="dest_account"
+                            id="sell-destination-account"
                             v-model="sellForm.destination_account_id"
                             required
-                            class="h-10 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:ring-1 focus-visible:ring-ring"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                         >
                             <option
                                 v-for="acc in accounts"
@@ -678,159 +1108,252 @@ const formatDate = (dateStr: string) => {
                                 {{ acc.name }}
                             </option>
                         </select>
+                        <p
+                            v-if="sellForm.errors.destination_account_id"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ sellForm.errors.destination_account_id }}
+                        </p>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-1.5">
-                            <Label for="sell_qty">
-                                {{
-                                    asset.type === 'stock'
-                                        ? `Lots to Sell (Max: ${asset.quantity} lots) *`
-                                        : `Quantity to Sell (Max: ${asset.quantity}) *`
-                                }}
-                            </Label>
-                            <Input
-                                id="sell_qty"
-                                v-model.number="sellForm.quantity"
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <div
+                                class="mb-1.5 flex items-center justify-between gap-2"
+                            >
+                                <label
+                                    for="sell-quantity"
+                                    class="text-sm font-medium text-foreground"
+                                >
+                                    Jumlah ({{ typeMeta.unitLabel }})
+                                    <span class="text-destructive">*</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    @click="fillMaxSellQuantity"
+                                    class="text-xs font-medium text-primary hover:underline"
+                                >
+                                    Jual Semua ({{
+                                        formatAssetQuantity(
+                                            asset.quantity,
+                                            asset.type,
+                                            false,
+                                        )
+                                    }})
+                                </button>
+                            </div>
+                            <input
+                                id="sell-quantity"
+                                v-model="sellForm.quantity"
                                 type="number"
-                                step="any"
-                                min="0.00000001"
-                                :max="Number(asset.quantity)"
-                                placeholder="0"
+                                inputmode="decimal"
+                                :step="quantityStep"
+                                min="0"
+                                :max="asset.quantity"
                                 required
-                                class="rounded-xl"
+                                placeholder="0"
+                                class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                             />
                             <p
-                                v-if="
-                                    asset.type === 'stock' && sellForm.quantity
-                                "
-                                class="text-[10px] text-muted-foreground"
+                                v-if="isStock && Number(sellForm.quantity) > 0"
+                                class="mt-1 text-xs text-muted-foreground tabular-nums"
                             >
-                                =
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        Number(sellForm.quantity) * 100,
-                                    )
-                                }}
-                                lembar
+                                = {{ formatStockShares(sellForm.quantity) }}
                             </p>
                             <p
-                                v-if="
-                                    asset.type === 'stock' && sellForm.quantity
-                                "
-                                class="text-[10px] text-muted-foreground"
+                                v-if="sellForm.errors.quantity"
+                                class="mt-1 text-xs text-destructive"
                             >
-                                =
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        Number(sellForm.quantity) * 100,
-                                    )
-                                }}
-                                lembar
+                                {{ sellForm.errors.quantity }}
                             </p>
                         </div>
-                        <div class="space-y-1.5">
-                            <Label for="sell_price">
-                                {{
-                                    asset.type === 'stock'
-                                        ? 'Selling Price Per Lembar *'
-                                        : 'Selling Price Per Unit *'
-                                }}
-                            </Label>
+
+                        <div>
+                            <label
+                                for="sell-price"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Harga Jual ({{ typeMeta.priceUnitHint }})
+                                <span class="text-destructive">*</span>
+                            </label>
                             <MoneyInput
-                                id="sell_price"
+                                id="sell-price"
                                 v-model="sellForm.price_per_unit"
-                                :allow-decimal="true"
-                                :max-decimals="4"
-                                placeholder="0"
+                                :currency="asset.currency"
                                 required
                             />
+                            <p
+                                v-if="sellForm.errors.price_per_unit"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ sellForm.errors.price_per_unit }}
+                            </p>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-1.5">
-                            <Label for="sell_fees"
-                                >Broker / Platform Fees</Label
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label
+                                for="sell-fees"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
                             >
+                                Biaya Admin / Pajak Jual
+                            </label>
                             <MoneyInput
-                                id="sell_fees"
+                                id="sell-fees"
                                 v-model="sellForm.fees"
+                                :currency="asset.currency"
                                 placeholder="0"
                             />
+                            <p
+                                v-if="sellForm.errors.fees"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ sellForm.errors.fees }}
+                            </p>
                         </div>
-                        <div class="space-y-1.5">
-                            <Label for="sell_date">Transaction Date</Label>
-                            <Input
-                                id="sell_date"
+
+                        <div>
+                            <label
+                                for="sell-date"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Tanggal Penjualan
+                                <span class="text-destructive">*</span>
+                            </label>
+                            <input
+                                id="sell-date"
                                 v-model="sellForm.date"
                                 type="date"
                                 required
-                                class="rounded-xl"
+                                class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                             />
+                            <p
+                                v-if="sellForm.errors.date"
+                                class="mt-1 text-xs text-destructive"
+                            >
+                                {{ sellForm.errors.date }}
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Live Calculation Summary -->
-                    <div
-                        class="flex items-center justify-between rounded-xl bg-muted/50 p-3 text-xs font-medium"
-                    >
-                        <span class="text-muted-foreground"
-                            >Estimated Net Proceeds Added:</span
+                    <div>
+                        <label
+                            for="sell-notes"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
                         >
-                        <span
-                            class="text-sm font-bold text-emerald-600 dark:text-emerald-400"
-                        >
-                            +<MoneyDisplay :amount="estimatedSellNet" />
-                        </span>
+                            Catatan (Opsional)
+                        </label>
+                        <input
+                            id="sell-notes"
+                            v-model="sellForm.notes"
+                            type="text"
+                            placeholder="cth. Ambil untung sebagian (profit taking)"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
+                        />
                     </div>
 
-                    <DialogFooter class="gap-2 sm:gap-0">
-                        <Button
+                    <!-- Summary Box -->
+                    <div class="space-y-1.5 rounded-xl border p-3.5 text-xs">
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">
+                                Hasil Penjualan Kotor
+                            </span>
+                            <span class="font-medium tabular-nums">
+                                <MoneyDisplay
+                                    :amount="sellGrossTotal"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-muted-foreground">
+                                Potongan Biaya
+                            </span>
+                            <span class="font-medium tabular-nums">
+                                <MoneyDisplay
+                                    :amount="sellForm.fees || 0"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                        <div
+                            class="flex items-center justify-between border-t pt-2 text-sm font-semibold"
+                        >
+                            <span>Dana Bersih Masuk Rekening</span>
+                            <span
+                                class="text-emerald-600 tabular-nums dark:text-emerald-400"
+                            >
+                                <MoneyDisplay
+                                    :amount="sellNetProceeds"
+                                    :currency="asset.currency"
+                                />
+                            </span>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <button
                             type="button"
-                            variant="outline"
                             @click="showSellModal = false"
+                            class="inline-flex h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground hover:bg-accent sm:h-9"
                         >
-                            Cancel
-                        </Button>
-                        <Button
+                            Batal
+                        </button>
+                        <button
                             type="submit"
-                            class="bg-rose-600 text-white hover:bg-rose-500"
                             :disabled="sellForm.processing"
+                            class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 sm:h-9"
                         >
-                            Confirm Sale
-                        </Button>
+                            <Loader2
+                                v-if="sellForm.processing"
+                                class="size-4 animate-spin"
+                                aria-hidden="true"
+                            />
+                            {{
+                                sellForm.processing
+                                    ? 'Memproses...'
+                                    : 'Konfirmasi Penjualan'
+                            }}
+                        </button>
                     </DialogFooter>
                 </form>
             </DialogContent>
         </Dialog>
 
-        <!-- Modal 4: Delete Confirm -->
-        <Dialog v-model:open="showDeleteConfirm">
-            <DialogContent class="rounded-2xl sm:max-w-md">
+        <!-- Dialog 4: Hapus Aset -->
+        <Dialog v-model:open="showDeleteModal">
+            <DialogContent class="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Remove Asset from Portfolio?</DialogTitle>
+                    <DialogTitle>Hapus {{ asset.name }}?</DialogTitle>
                     <DialogDescription>
-                        Are you sure you want to remove {{ asset.name }}? This
-                        will remove the asset from your active net worth
-                        calculations.
+                        Aset ini akan dihapus dari daftar portofolio Anda. Saldo
+                        rekening kas yang terhubung dengan riwayat transaksi
+                        sebelumnya tidak akan ikut terhapus.
                     </DialogDescription>
                 </DialogHeader>
-                <DialogFooter class="gap-2 sm:gap-0">
-                    <Button
+
+                <DialogFooter>
+                    <button
                         type="button"
-                        variant="outline"
-                        @click="showDeleteConfirm = false"
+                        @click="showDeleteModal = false"
+                        class="inline-flex h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground hover:bg-accent sm:h-9"
                     >
-                        Cancel
-                    </Button>
-                    <Button
+                        Batal
+                    </button>
+                    <button
                         type="button"
-                        variant="destructive"
-                        @click="executeDelete"
+                        :disabled="isDeleting"
+                        @click="confirmDelete"
+                        class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-destructive px-4 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 sm:h-9"
                     >
-                        Delete Asset
-                    </Button>
+                        <Loader2
+                            v-if="isDeleting"
+                            class="size-4 animate-spin"
+                            aria-hidden="true"
+                        />
+                        {{ isDeleting ? 'Menghapus...' : 'Ya, Hapus Aset' }}
+                    </button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
