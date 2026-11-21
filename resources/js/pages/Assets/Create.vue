@@ -1,47 +1,37 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import {
-    ArrowLeft,
-    TrendingUp,
-    Coins,
-    Building2,
-    Gem,
-    Home,
-    Car,
-    Boxes,
-} from '@lucide/vue';
-import { computed, ref, watch } from 'vue';
-import InputError from '@/components/InputError.vue';
+import { ArrowLeft, Check, Loader2, Plus } from '@lucide/vue';
+import { computed, ref } from 'vue';
+import MoneyDisplay from '@/components/MoneyDisplay.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    ASSET_CURRENCIES,
+    formatStockShares,
+    getAssetTintStyle,
+    getAssetTypeMeta,
+} from '@/lib/assets';
 
 defineOptions({
     layout: {
         breadcrumbs: [
-            {
-                title: 'Portfolio & Assets',
-                href: '/assets',
-            },
-            {
-                title: 'Add Asset',
-                href: '/assets/create',
-            },
+            { title: 'Aset & Investasi', href: '/assets' },
+            { title: 'Tambah Aset', href: '/assets/create' },
         ],
     },
 });
 
+interface AssetTypeOption {
+    value: string;
+    label: string;
+    color: string;
+    is_investment: boolean;
+    is_valued_manually: boolean;
+    precision: number;
+}
+
 const props = defineProps<{
-    assetTypes: Array<{
-        value: string;
-        label: string;
-        color: string;
-        is_investment: boolean;
-        is_valued_manually: boolean;
-        precision: number;
-    }>;
-    accounts: Array<{
+    assetTypes: AssetTypeOption[];
+    accounts?: Array<{
         id: string;
         name: string;
         type: string;
@@ -49,520 +39,802 @@ const props = defineProps<{
     }>;
 }>();
 
+const fallbackTypes: AssetTypeOption[] = [
+    {
+        value: 'stock',
+        label: 'Stocks',
+        color: '#3B82F6',
+        is_investment: true,
+        is_valued_manually: false,
+        precision: 0,
+    },
+    {
+        value: 'mutual_fund',
+        label: 'Mutual Funds',
+        color: '#8B5CF6',
+        is_investment: true,
+        is_valued_manually: false,
+        precision: 4,
+    },
+    {
+        value: 'crypto',
+        label: 'Cryptocurrency',
+        color: '#F59E0B',
+        is_investment: true,
+        is_valued_manually: false,
+        precision: 8,
+    },
+    {
+        value: 'other_investment',
+        label: 'Other Investment',
+        color: '#06B6D4',
+        is_investment: true,
+        is_valued_manually: false,
+        precision: 4,
+    },
+    {
+        value: 'gold',
+        label: 'Gold & Precious Metals',
+        color: '#EAB308',
+        is_investment: false,
+        is_valued_manually: false,
+        precision: 4,
+    },
+    {
+        value: 'property',
+        label: 'Property / Real Estate',
+        color: '#EC4899',
+        is_investment: false,
+        is_valued_manually: true,
+        precision: 0,
+    },
+    {
+        value: 'vehicle',
+        label: 'Vehicles',
+        color: '#EC4899',
+        is_investment: false,
+        is_valued_manually: true,
+        precision: 0,
+    },
+    {
+        value: 'other_asset',
+        label: 'Other Asset',
+        color: '#64748B',
+        is_investment: false,
+        is_valued_manually: true,
+        precision: 0,
+    },
+];
+
+const typeOptions = computed(() => {
+    const source = props.assetTypes?.length ? props.assetTypes : fallbackTypes;
+
+    return source.map((item) => ({
+        ...item,
+        meta: getAssetTypeMeta(item.value),
+    }));
+});
+
+const initialType = computed(() => typeOptions.value[0]?.value || 'stock');
+
 const form = useForm({
-    type: 'stock',
+    type: initialType.value,
     name: '',
     platform: '',
     ticker: '',
     currency: 'IDR',
-    quantity: undefined as number | undefined,
-    avg_purchase_price: null as number | null,
-    current_price: null as number | null,
-    manual_value: null as number | null,
+    quantity: '' as number | string,
+    avg_purchase_price: 0,
+    current_price: 0,
+    manual_value: 0,
     notes: '',
 });
 
-const selectedType = computed(() => {
-    return (
-        props.assetTypes.find((t) => t.value === form.type) ||
-        props.assetTypes[0]
-    );
+const totalInvestedField = ref(0);
+
+const selectedOption = computed(
+    () =>
+        typeOptions.value.find((t) => t.value === form.type) ??
+        typeOptions.value[0],
+);
+
+const selectedMeta = computed(() => getAssetTypeMeta(form.type));
+
+const isManualAsset = computed(
+    () =>
+        selectedOption.value?.is_valued_manually ??
+        selectedMeta.value.isManualDefault,
+);
+
+const isStock = computed(() => form.type === 'stock');
+
+const stockMultiplier = computed(() => (isStock.value ? 100 : 1));
+
+const numericQuantity = computed(() => {
+    const parsed = Number(form.quantity);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 });
 
-const isManualValue = computed(() => selectedType.value?.is_valued_manually);
-
-const getTypeIcon = (type: string) => {
-    switch (type) {
-        case 'stock':
-            return TrendingUp;
-        case 'crypto':
-            return Coins;
-        case 'mutual_fund':
-            return Building2;
-        case 'gold':
-            return Gem;
-        case 'property':
-            return Home;
-        case 'vehicle':
-            return Car;
-        default:
-            return Boxes;
+const quantityStep = computed(() => {
+    if (isStock.value) {
+        return '1';
     }
-};
+
+    const precision =
+        selectedOption.value?.precision ?? selectedMeta.value.precision;
+
+    return precision > 0
+        ? (1 / Math.pow(10, Math.min(precision, 8))).toString()
+        : 'any';
+});
 
 const selectType = (typeValue: string) => {
     form.type = typeValue;
+    const option = typeOptions.value.find((t) => t.value === typeValue);
+    const manual =
+        option?.is_valued_manually ??
+        getAssetTypeMeta(typeValue).isManualDefault;
 
-    if (isManualValue.value) {
-        form.quantity = undefined;
-        form.avg_purchase_price = null;
-        form.current_price = null;
+    if (manual) {
+        form.quantity = 1;
+        form.current_price = 0;
+        totalInvestedField.value = form.avg_purchase_price;
     } else {
-        form.manual_value = null;
+        if (form.quantity === 1 && form.manual_value > 0) {
+            form.quantity = '';
+        }
+
+        form.manual_value = 0;
+        totalInvestedField.value = Math.round(
+            numericQuantity.value *
+                (typeValue === 'stock' ? 100 : 1) *
+                form.avg_purchase_price,
+        );
     }
 };
 
-const holdingMultiplier = computed(() => {
-    return form.type === 'stock' ? 100 : 1;
-});
+const handleQuantityChange = () => {
+    totalInvestedField.value = Math.round(
+        numericQuantity.value * stockMultiplier.value * form.avg_purchase_price,
+    );
+};
 
-const totalInvestedField = ref<number | null>(null);
-let isSyncing = false;
+const handleAvgPriceChange = (val: number | null) => {
+    const safeVal = val ?? 0;
 
-watch(
-    [() => form.avg_purchase_price, () => form.quantity, () => form.type],
-    ([newAvg, newQty]) => {
-        if (isSyncing) {
-            return;
-        }
+    form.avg_purchase_price = safeVal;
+    totalInvestedField.value = Math.round(
+        numericQuantity.value * stockMultiplier.value * safeVal,
+    );
+};
 
-        const q = Number(newQty) || 0;
-        const avg = Number(newAvg) || 0;
-        const mult = form.type === 'stock' ? 100 : 1;
+const handleTotalInvestedChange = (val: number | null) => {
+    const safeVal = val ?? 0;
 
-        if (q > 0 && avg > 0) {
-            isSyncing = true;
-            totalInvestedField.value = Number((q * avg * mult).toFixed(2));
-            setTimeout(() => {
-                isSyncing = false;
-            }, 50);
-        } else if (!newAvg) {
-            totalInvestedField.value = null;
-        }
-    },
-);
+    totalInvestedField.value = safeVal;
+    const units = numericQuantity.value * stockMultiplier.value;
 
-const onTotalInvestedChange = (val: number | null) => {
-    if (isSyncing) {
-        return;
-    }
-
-    totalInvestedField.value = val;
-    const q = Number(form.quantity) || 0;
-    const mult = form.type === 'stock' ? 100 : 1;
-    const totalUnits = q * mult;
-
-    if (val && totalUnits > 0) {
-        isSyncing = true;
-        // e.g. 12616896.9 / 3000 = 4205.6323
-        form.avg_purchase_price = Number((val / totalUnits).toFixed(4));
-        setTimeout(() => {
-            isSyncing = false;
-        }, 50);
+    if (units > 0) {
+        form.avg_purchase_price = Math.round(safeVal / units);
     }
 };
 
-const calculatedTotalShares = computed(() => {
-    const q = Number(form.quantity) || 0;
+const copyBuyPriceToCurrent = () => {
+    if (form.avg_purchase_price > 0) {
+        form.current_price = form.avg_purchase_price;
+    }
+};
 
-    return q * holdingMultiplier.value;
-});
-
-const calculatedCostBasis = computed(() => {
-    if (
-        totalInvestedField.value !== null &&
-        totalInvestedField.value !== undefined &&
-        totalInvestedField.value > 0
-    ) {
-        return totalInvestedField.value;
+const previewMarketValue = computed(() => {
+    if (isManualAsset.value) {
+        return form.manual_value || 0;
     }
 
-    const q = Number(form.quantity) || 0;
-    const avg = Number(form.avg_purchase_price) || 0;
-
-    return Math.round(q * avg * holdingMultiplier.value);
-});
-
-const calculatedMarketValue = computed(() => {
-    const q = Number(form.quantity) || 0;
-    const cur =
-        Number(form.current_price) || Number(form.avg_purchase_price) || 0;
-
-    return Math.round(q * cur * holdingMultiplier.value);
-});
-
-const calculatedPnl = computed(() => {
-    return Math.round(calculatedMarketValue.value - calculatedCostBasis.value);
-});
-
-const calculatedPnlPercentage = computed(() => {
-    if (calculatedCostBasis.value <= 0) {
-        return 0;
-    }
-
-    return Number(
-        ((calculatedPnl.value / calculatedCostBasis.value) * 100).toFixed(2),
+    return Math.round(
+        numericQuantity.value *
+            stockMultiplier.value *
+            (form.current_price || 0),
     );
 });
 
+const previewCostBasis = computed(() => {
+    if (isManualAsset.value) {
+        return form.avg_purchase_price || 0;
+    }
+
+    return Math.round(
+        numericQuantity.value *
+            stockMultiplier.value *
+            (form.avg_purchase_price || 0),
+    );
+});
+
+const previewPnl = computed(
+    () => previewMarketValue.value - previewCostBasis.value,
+);
+
 const submit = () => {
-    form.post('/assets');
+    form.transform((data) => ({
+        ...data,
+        ticker: data.ticker ? data.ticker.trim().toUpperCase() : '',
+        quantity: isManualAsset.value ? 1 : Number(data.quantity || 0),
+        avg_purchase_price: data.avg_purchase_price || 0,
+        current_price: isManualAsset.value ? 0 : data.current_price || 0,
+        manual_value: isManualAsset.value ? data.manual_value || 0 : 0,
+    })).post('/assets');
 };
 </script>
 
 <template>
-    <Head title="Add Asset - Finova" />
+    <Head title="Tambah Aset Baru" />
 
-    <div class="mx-auto max-w-3xl p-4 md:p-6 lg:p-8">
-        <!-- Back Link & Header -->
-        <div class="mb-6">
+    <div
+        class="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col gap-4 p-4 md:p-6 lg:gap-5 lg:p-8"
+    >
+        <!-- Header -->
+        <div class="flex items-center gap-3">
             <Link
                 href="/assets"
-                class="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Kembali ke daftar aset"
+                class="inline-flex size-11 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:size-9"
             >
-                <ArrowLeft class="h-3.5 w-3.5" />
-                Back to Portfolio
+                <ArrowLeft class="size-4" aria-hidden="true" />
             </Link>
-            <h1 class="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                Add New Asset
-            </h1>
-            <p class="mt-1 text-sm text-muted-foreground">
-                Register an investment or physical asset to include in your net
-                worth.
-            </p>
+            <div class="min-w-0">
+                <h1 class="truncate text-2xl font-semibold tracking-tight">
+                    Tambah Aset Baru
+                </h1>
+                <p class="mt-0.5 truncate text-sm text-muted-foreground">
+                    Catat instrumen investasi atau aset riil untuk memantau
+                    perkembangan portofolio Anda.
+                </p>
+            </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
-            <!-- Asset Class Selector -->
-            <div class="rounded-2xl border bg-card p-5 shadow-sm">
-                <Label
-                    class="text-xs font-bold tracking-wider text-muted-foreground uppercase"
-                >
-                    1. Select Asset Class
-                </Label>
-                <div class="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                    <button
-                        v-for="item in assetTypes"
-                        :key="item.value"
-                        type="button"
-                        :class="[
-                            'flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center transition-all',
-                            form.type === item.value
-                                ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                                : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                        ]"
-                        @click="selectType(item.value)"
-                    >
-                        <component
-                            :is="getTypeIcon(item.value)"
-                            class="h-5 w-5"
-                        />
-                        <span class="text-xs font-semibold">{{
-                            item.label
-                        }}</span>
-                    </button>
+        <!-- Form Card -->
+        <form
+            @submit.prevent="submit"
+            class="divide-y rounded-xl border bg-card"
+        >
+            <!-- Section 1: Jenis & Identitas Aset -->
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <h2 class="text-sm font-semibold text-foreground">
+                        Jenis &amp; Identitas Aset
+                    </h2>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                        Pilih kategori aset yang paling sesuai agar satuan dan
+                        perhitungan nilai akurat.
+                    </p>
                 </div>
-                <InputError :message="form.errors.type" class="mt-2" />
-            </div>
 
-            <!-- Asset Details -->
-            <div class="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
-                <Label
-                    class="text-xs font-bold tracking-wider text-muted-foreground uppercase"
-                >
-                    2. Asset Identity &amp; Details
-                </Label>
-
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <!-- Name -->
-                    <div class="space-y-1.5">
-                        <Label for="name" class="text-xs font-medium"
-                            >Asset Name *</Label
+                <!-- Asset Type Grid -->
+                <fieldset>
+                    <legend class="mb-2 text-sm font-medium text-foreground">
+                        Kategori Aset
+                    </legend>
+                    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                        <button
+                            v-for="opt in typeOptions"
+                            :key="opt.value"
+                            type="button"
+                            :aria-pressed="form.type === opt.value"
+                            @click="selectType(opt.value)"
+                            class="relative flex min-h-[78px] flex-col items-start justify-between rounded-xl border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                            :class="
+                                form.type === opt.value
+                                    ? 'border-primary bg-primary/[0.04] ring-1 ring-primary'
+                                    : 'border-border bg-background hover:bg-accent/50'
+                            "
                         >
-                        <Input
-                            id="name"
+                            <div
+                                class="flex w-full items-center justify-between gap-2"
+                            >
+                                <span
+                                    class="flex size-8 items-center justify-center rounded-lg"
+                                    :style="getAssetTintStyle(opt.meta.tint)"
+                                >
+                                    <component
+                                        :is="opt.meta.icon"
+                                        class="size-4"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                                <span
+                                    v-if="form.type === opt.value"
+                                    class="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                                >
+                                    <Check
+                                        class="size-2.5"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                            </div>
+                            <span
+                                class="mt-2.5 text-xs font-semibold text-foreground sm:text-sm"
+                            >
+                                {{ opt.meta.label }}
+                            </span>
+                        </button>
+                    </div>
+                    <p
+                        id="asset-type-hint"
+                        class="mt-2 text-xs text-muted-foreground"
+                    >
+                        {{ selectedMeta.description }}
+                    </p>
+                    <p
+                        v-if="form.errors.type"
+                        id="asset-type-error"
+                        class="mt-1.5 text-xs text-destructive"
+                    >
+                        {{ form.errors.type }}
+                    </p>
+                </fieldset>
+
+                <!-- Nama & Mata Uang -->
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="sm:col-span-2">
+                        <label
+                            for="asset-name"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Nama Aset
+                            <span class="text-destructive">*</span>
+                        </label>
+                        <input
+                            id="asset-name"
                             v-model="form.name"
                             type="text"
-                            placeholder="e.g. Bank Mandiri, Bitcoin, Citra Garden House"
                             required
-                            class="rounded-xl"
+                            maxlength="100"
+                            placeholder="cth. Bank Central Asia, Bitcoin, Emas Antam"
+                            :aria-invalid="Boolean(form.errors.name)"
+                            :aria-describedby="
+                                form.errors.name
+                                    ? 'asset-name-error'
+                                    : undefined
+                            "
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                         />
-                        <InputError :message="form.errors.name" />
+                        <p
+                            v-if="form.errors.name"
+                            id="asset-name-error"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.name }}
+                        </p>
                     </div>
 
-                    <!-- Platform / Broker / Custodian -->
-                    <div class="space-y-1.5">
-                        <Label for="platform" class="text-xs font-medium">
-                            Platform / Broker / Custodian
-                        </Label>
-                        <Input
-                            id="platform"
+                    <div>
+                        <label
+                            for="asset-currency"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Mata Uang
+                        </label>
+                        <select
+                            id="asset-currency"
+                            v-model="form.currency"
+                            :aria-invalid="Boolean(form.errors.currency)"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
+                        >
+                            <option
+                                v-for="curr in ASSET_CURRENCIES"
+                                :key="curr"
+                                :value="curr"
+                            >
+                                {{ curr }}
+                            </option>
+                        </select>
+                        <p
+                            v-if="form.errors.currency"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.currency }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Platform & Ticker -->
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label
+                            for="asset-platform"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                        >
+                            <span>
+                                {{
+                                    isManualAsset
+                                        ? 'Lokasi / Penyimpanan'
+                                        : 'Platform / Sekuritas'
+                                }}
+                            </span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                            >
+                                Opsional
+                            </span>
+                        </label>
+                        <input
+                            id="asset-platform"
                             v-model="form.platform"
                             type="text"
-                            placeholder="e.g. Stockbit, Bibit, Indodax, Physical Safe"
-                            class="rounded-xl"
+                            maxlength="100"
+                            :placeholder="selectedMeta.platformPlaceholder"
+                            :aria-invalid="Boolean(form.errors.platform)"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                         />
-                        <InputError :message="form.errors.platform" />
+                        <p
+                            v-if="form.errors.platform"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.platform }}
+                        </p>
                     </div>
 
-                    <!-- Ticker (for stocks / crypto) -->
-                    <div v-if="!isManualValue" class="space-y-1.5">
-                        <Label for="ticker" class="text-xs font-medium">
-                            Ticker Symbol
-                        </Label>
-                        <Input
-                            id="ticker"
+                    <div>
+                        <label
+                            for="asset-ticker"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                        >
+                            <span>
+                                {{
+                                    isManualAsset
+                                        ? 'Kode / Nomor Identitas'
+                                        : 'Kode Ticker / Simbol'
+                                }}
+                            </span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                            >
+                                Opsional
+                            </span>
+                        </label>
+                        <input
+                            id="asset-ticker"
                             v-model="form.ticker"
                             type="text"
-                            placeholder="e.g. BMRI, BTC, BBCA"
-                            class="rounded-xl font-mono uppercase"
+                            maxlength="20"
+                            autocapitalize="characters"
+                            autocorrect="off"
+                            spellcheck="false"
+                            :placeholder="selectedMeta.tickerPlaceholder"
+                            :aria-invalid="Boolean(form.errors.ticker)"
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 font-mono text-base text-foreground uppercase placeholder:font-sans placeholder:text-muted-foreground placeholder:normal-case focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
                         />
-                        <InputError :message="form.errors.ticker" />
-                    </div>
-
-                    <!-- Currency -->
-                    <div class="space-y-1.5">
-                        <Label for="currency" class="text-xs font-medium"
-                            >Currency</Label
+                        <p
+                            v-if="form.errors.ticker"
+                            class="mt-1.5 text-xs text-destructive"
                         >
-                        <Input
-                            id="currency"
-                            v-model="form.currency"
-                            type="text"
-                            maxlength="3"
-                            class="rounded-xl font-mono uppercase"
-                        />
-                        <InputError :message="form.errors.currency" />
-                    </div>
-                </div>
-
-                <!-- Manual Value (for Real Assets) -->
-                <div v-if="isManualValue" class="space-y-1.5 pt-2">
-                    <Label for="manual_value" class="text-xs font-medium">
-                        Current Estimated Value (IDR) *
-                    </Label>
-                    <MoneyInput
-                        id="manual_value"
-                        v-model="form.manual_value"
-                        placeholder="0"
-                        class="rounded-xl"
-                    />
-                    <InputError :message="form.errors.manual_value" />
-                </div>
-
-                <!-- Initial Holdings (for Investments) -->
-                <div
-                    v-else
-                    class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-4"
-                >
-                    <div class="space-y-1.5">
-                        <Label for="quantity" class="text-xs font-medium">
-                            {{
-                                form.type === 'stock'
-                                    ? 'Quantity (Lots) *'
-                                    : 'Quantity Held *'
-                            }}
-                        </Label>
-                        <Input
-                            id="quantity"
-                            v-model.number="form.quantity"
-                            type="number"
-                            step="any"
-                            min="0"
-                            placeholder="0"
-                            class="rounded-xl"
-                        />
-                        <p class="text-[10px] text-muted-foreground">
-                            {{
-                                form.type === 'stock'
-                                    ? '1 lot = 100 lembar'
-                                    : 'Total units'
-                            }}
-                        </p>
-                        <InputError :message="form.errors.quantity" />
-                    </div>
-
-                    <div class="space-y-1.5">
-                        <Label
-                            for="avg_purchase_price"
-                            class="text-xs font-medium"
-                        >
-                            {{
-                                form.type === 'stock'
-                                    ? 'Avg Buy Price (Per Lembar)'
-                                    : 'Avg Buy Price (Per Unit)'
-                            }}
-                        </Label>
-                        <MoneyInput
-                            id="avg_purchase_price"
-                            v-model="form.avg_purchase_price"
-                            :allow-decimal="true"
-                            :max-decimals="4"
-                            placeholder="0"
-                            class="rounded-xl"
-                        />
-                        <p class="text-[10px] text-muted-foreground">
-                            Harga modal per lembar
-                        </p>
-                        <InputError :message="form.errors.avg_purchase_price" />
-                    </div>
-
-                    <div class="space-y-1.5">
-                        <Label for="total_invested" class="text-xs font-medium">
-                            Total Invested (Modal Beli)
-                        </Label>
-                        <MoneyInput
-                            id="total_invested"
-                            :model-value="totalInvestedField"
-                            :allow-decimal="true"
-                            :max-decimals="2"
-                            @update:model-value="onTotalInvestedChange"
-                            placeholder="0"
-                            class="rounded-xl"
-                        />
-                        <p class="text-[10px] text-muted-foreground">
-                            Bisa paste langsung dari Stockbit
+                            {{ form.errors.ticker }}
                         </p>
                     </div>
-
-                    <div class="space-y-1.5">
-                        <Label for="current_price" class="text-xs font-medium">
-                            {{
-                                form.type === 'stock'
-                                    ? 'Current Market Price (Per Lembar)'
-                                    : 'Current Market Price'
-                            }}
-                        </Label>
-                        <MoneyInput
-                            id="current_price"
-                            v-model="form.current_price"
-                            :allow-decimal="true"
-                            :max-decimals="4"
-                            placeholder="0"
-                            class="rounded-xl"
-                        />
-                        <p class="text-[10px] text-muted-foreground">
-                            Harga pasar bursa terkini
-                        </p>
-                        <InputError :message="form.errors.current_price" />
-                    </div>
-                </div>
-
-                <!-- Live Portfolio Preview for Investments -->
-                <div
-                    v-if="!isManualValue && form.quantity"
-                    class="rounded-2xl border border-border/80 bg-muted/40 p-4 text-xs shadow-xs"
-                >
-                    <div
-                        class="mb-3 flex items-center justify-between border-b pb-2 text-xs font-medium text-muted-foreground"
-                    >
-                        <span class="flex items-center gap-1.5">
-                            <span
-                                class="h-2 w-2 rounded-full bg-primary"
-                            ></span>
-                            Calculated Portfolio Preview (Sesuai Stockbit)
-                        </span>
-                        <span
-                            v-if="form.type === 'stock'"
-                            class="rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary"
-                        >
-                            {{ form.quantity }} lot =
-                            {{
-                                new Intl.NumberFormat('id-ID').format(
-                                    calculatedTotalShares,
-                                )
-                            }}
-                            lembar
-                        </span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <div class="space-y-0.5">
-                            <div class="text-[11px] text-muted-foreground">
-                                Invested (Modal Beli)
-                            </div>
-                            <div class="text-sm font-semibold text-foreground">
-                                Rp
-                                {{
-                                    new Intl.NumberFormat('id-ID', {
-                                        minimumFractionDigits: 0,
-                                        maximumFractionDigits: 1,
-                                    }).format(calculatedCostBasis)
-                                }}
-                            </div>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="text-[11px] text-muted-foreground">
-                                Market Value
-                            </div>
-                            <div class="text-sm font-semibold text-foreground">
-                                Rp
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        calculatedMarketValue,
-                                    )
-                                }}
-                            </div>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="text-[11px] text-muted-foreground">
-                                Potential P&amp;L
-                            </div>
-                            <div
-                                :class="[
-                                    'text-sm font-semibold',
-                                    calculatedPnl >= 0
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-rose-600 dark:text-rose-400',
-                                ]"
-                            >
-                                {{ calculatedPnl < 0 ? '-Rp ' : '+Rp ' }}
-                                {{
-                                    new Intl.NumberFormat('id-ID').format(
-                                        Math.abs(calculatedPnl),
-                                    )
-                                }}
-                            </div>
-                        </div>
-                        <div class="space-y-0.5">
-                            <div class="text-[11px] text-muted-foreground">
-                                Percentage
-                            </div>
-                            <div
-                                :class="[
-                                    'text-sm font-semibold',
-                                    calculatedPnl >= 0
-                                        ? 'text-emerald-600 dark:text-emerald-400'
-                                        : 'text-rose-600 dark:text-rose-400',
-                                ]"
-                            >
-                                {{ calculatedPnl >= 0 ? '+' : ''
-                                }}{{ calculatedPnlPercentage }}%
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Notes -->
-                <div class="space-y-1.5 pt-2">
-                    <Label for="notes" class="text-xs font-medium"
-                        >Notes (Optional)</Label
-                    >
-                    <textarea
-                        id="notes"
-                        v-model="form.notes"
-                        rows="3"
-                        placeholder="Any additional details or strategy notes..."
-                        class="w-full rounded-xl border border-input bg-background p-3 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                    />
-                    <InputError :message="form.errors.notes" />
                 </div>
             </div>
 
-            <!-- Submit Action Bar -->
-            <div class="flex items-center justify-end gap-3">
+            <!-- Section 2: Jumlah & Valuasi -->
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <h2 class="text-sm font-semibold text-foreground">
+                        Jumlah &amp; Valuasi Awal
+                    </h2>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                        {{
+                            isManualAsset
+                                ? 'Masukkan estimasi nilai pasar terkini dan modal awal bila ingin memantau selisih nilai.'
+                                : 'Masukkan kepemilikan, modal rata-rata beli, dan harga pasar saat ini.'
+                        }}
+                    </p>
+                </div>
+
+                <!-- Unit-Tracked Fields -->
+                <template v-if="!isManualAsset">
+                    <div>
+                        <label
+                            for="asset-quantity"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Jumlah Kepemilikan ({{ selectedMeta.unitLabel }})
+                        </label>
+                        <input
+                            id="asset-quantity"
+                            v-model="form.quantity"
+                            type="number"
+                            inputmode="decimal"
+                            :step="quantityStep"
+                            min="0"
+                            placeholder="0"
+                            @input="handleQuantityChange"
+                            :aria-invalid="Boolean(form.errors.quantity)"
+                            :aria-describedby="
+                                [
+                                    isStock ? 'asset-quantity-stock-hint' : '',
+                                    form.errors.quantity
+                                        ? 'asset-quantity-error'
+                                        : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ') || undefined
+                            "
+                            class="h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:h-10 sm:text-sm"
+                        />
+                        <p
+                            v-if="isStock"
+                            id="asset-quantity-stock-hint"
+                            class="mt-1.5 text-xs text-muted-foreground tabular-nums"
+                        >
+                            <template v-if="numericQuantity > 0">
+                                Setara dengan
+                                <strong class="font-medium text-foreground">
+                                    {{ formatStockShares(numericQuantity) }}
+                                </strong>
+                                (1 lot = 100 lembar).
+                            </template>
+                            <template v-else>
+                                Saham Bursa Efek Indonesia menggunakan satuan
+                                lot (1 lot = 100 lembar).
+                            </template>
+                        </p>
+                        <p
+                            v-if="form.errors.quantity"
+                            id="asset-quantity-error"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.quantity }}
+                        </p>
+                    </div>
+
+                    <!-- Harga Beli Rata-rata & Total Modal -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label
+                                for="asset-avg-price"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Harga Beli Rata-rata ({{
+                                    selectedMeta.priceUnitHint
+                                }})
+                            </label>
+                            <MoneyInput
+                                id="asset-avg-price"
+                                :model-value="form.avg_purchase_price"
+                                :currency="form.currency"
+                                placeholder="0"
+                                @update:model-value="handleAvgPriceChange"
+                            />
+                            <p
+                                v-if="form.errors.avg_purchase_price"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.avg_purchase_price }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                for="asset-total-invested"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Total Modal Diinvestasikan
+                            </label>
+                            <MoneyInput
+                                id="asset-total-invested"
+                                :model-value="totalInvestedField"
+                                :currency="form.currency"
+                                placeholder="0"
+                                @update:model-value="handleTotalInvestedChange"
+                            />
+                            <p class="mt-1.5 text-xs text-muted-foreground">
+                                Isi salah satu — kolom pasangannya terhitung
+                                otomatis.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Harga Pasar Saat Ini -->
+                    <div>
+                        <div
+                            class="mb-1.5 flex flex-wrap items-center justify-between gap-2"
+                        >
+                            <label
+                                for="asset-current-price"
+                                class="text-sm font-medium text-foreground"
+                            >
+                                Harga Pasar Saat Ini ({{
+                                    selectedMeta.priceUnitHint
+                                }})
+                            </label>
+                            <button
+                                v-if="
+                                    form.avg_purchase_price > 0 &&
+                                    form.current_price !==
+                                        form.avg_purchase_price
+                                "
+                                type="button"
+                                @click="copyBuyPriceToCurrent"
+                                class="text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                            >
+                                Samakan dengan harga beli
+                            </button>
+                        </div>
+                        <MoneyInput
+                            id="asset-current-price"
+                            v-model="form.current_price"
+                            :currency="form.currency"
+                            placeholder="0"
+                        />
+                        <p
+                            v-if="form.errors.current_price"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.current_price }}
+                        </p>
+                    </div>
+                </template>
+
+                <!-- Manual Valuation Fields -->
+                <template v-else>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label
+                                for="asset-manual-value"
+                                class="mb-1.5 block text-sm font-medium text-foreground"
+                            >
+                                Nilai Taksiran Saat Ini
+                                <span class="text-destructive">*</span>
+                            </label>
+                            <MoneyInput
+                                id="asset-manual-value"
+                                v-model="form.manual_value"
+                                :currency="form.currency"
+                                required
+                                placeholder="0"
+                            />
+                            <p
+                                v-if="form.errors.manual_value"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.manual_value }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                for="asset-manual-cost"
+                                class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                            >
+                                <span>Harga Beli / Modal Awal</span>
+                                <span
+                                    class="text-xs font-normal text-muted-foreground"
+                                >
+                                    Opsional
+                                </span>
+                            </label>
+                            <MoneyInput
+                                id="asset-manual-cost"
+                                v-model="form.avg_purchase_price"
+                                :currency="form.currency"
+                                placeholder="0"
+                            />
+                            <p
+                                v-if="form.errors.avg_purchase_price"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.avg_purchase_price }}
+                            </p>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Live Calculation Preview Strip -->
+                <div
+                    class="@container overflow-hidden rounded-xl border bg-border"
+                >
+                    <div class="grid grid-cols-1 gap-px @md:grid-cols-3">
+                        <div class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Estimasi Nilai Pasar
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                            >
+                                <MoneyDisplay
+                                    :amount="previewMarketValue"
+                                    :currency="form.currency"
+                                />
+                            </p>
+                        </div>
+                        <div class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Total Modal
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                            >
+                                <MoneyDisplay
+                                    :amount="previewCostBasis"
+                                    :currency="form.currency"
+                                />
+                            </p>
+                        </div>
+                        <div class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Estimasi Selisih
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                                :class="
+                                    previewPnl > 0
+                                        ? 'text-emerald-600 dark:text-emerald-400'
+                                        : previewPnl < 0
+                                          ? 'text-rose-600 dark:text-rose-400'
+                                          : 'text-foreground'
+                                "
+                            >
+                                <MoneyDisplay
+                                    :amount="previewPnl"
+                                    :currency="form.currency"
+                                    show-sign
+                                />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Catatan -->
+            <div class="space-y-4 p-5 sm:p-6">
+                <div>
+                    <label
+                        for="asset-notes"
+                        class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                    >
+                        <span>Catatan</span>
+                        <span class="text-xs font-normal text-muted-foreground">
+                            Opsional
+                        </span>
+                    </label>
+                    <textarea
+                        id="asset-notes"
+                        v-model="form.notes"
+                        rows="3"
+                        placeholder="Tambahkan strategi investasi, nomor sertifikat, atau target harga..."
+                        class="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:text-sm"
+                    ></textarea>
+                    <p
+                        v-if="form.errors.notes"
+                        class="mt-1.5 text-xs text-destructive"
+                    >
+                        {{ form.errors.notes }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Actions Footer -->
+            <div
+                class="flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6"
+            >
                 <Link
                     href="/assets"
-                    class="rounded-xl border px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    class="inline-flex h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:h-10"
                 >
-                    Cancel
+                    Batal
                 </Link>
-                <Button
+                <button
                     type="submit"
-                    class="rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow"
                     :disabled="form.processing"
+                    class="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 sm:h-10"
                 >
-                    {{ form.processing ? 'Saving Asset...' : 'Save Asset' }}
-                </Button>
+                    <Loader2
+                        v-if="form.processing"
+                        class="size-4 animate-spin"
+                        aria-hidden="true"
+                    />
+                    <Plus v-else class="size-4" aria-hidden="true" />
+                    {{ form.processing ? 'Menyimpan...' : 'Simpan Aset' }}
+                </button>
             </div>
         </form>
     </div>
