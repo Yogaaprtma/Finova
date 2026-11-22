@@ -1,42 +1,36 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import {
-    ArrowLeft,
-    CreditCard,
-    Banknote,
-    Calendar,
-    Receipt,
-} from '@lucide/vue';
+import { ArrowLeft, Check, Loader2, Plus } from '@lucide/vue';
 import { computed } from 'vue';
-import InputError from '@/components/InputError.vue';
+import MoneyDisplay from '@/components/MoneyDisplay.vue';
 import MoneyInput from '@/components/MoneyInput.vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    getCreditUtilization,
+    getLiabilityTintStyle,
+    getLiabilityTypeMeta,
+    getPayoffProgress,
+    LIABILITY_CURRENCIES,
+} from '@/lib/liabilities';
 
 defineOptions({
     layout: {
         breadcrumbs: [
-            {
-                title: 'Liabilities & Debt',
-                href: '/liabilities',
-            },
-            {
-                title: 'Add Liability',
-                href: '/liabilities/create',
-            },
+            { title: 'Utang', href: '/liabilities' },
+            { title: 'Tambah Utang', href: '/liabilities/create' },
         ],
     },
 });
 
+interface LiabilityTypeOption {
+    value: string;
+    label: string;
+    color: string;
+    description: string;
+}
+
 const props = defineProps<{
-    liabilityTypes: Array<{
-        value: string;
-        label: string;
-        color: string;
-        description: string;
-    }>;
-    accounts: Array<{
+    liabilityTypes?: LiabilityTypeOption[];
+    accounts?: Array<{
         id: string;
         name: string;
         type: string;
@@ -44,316 +38,714 @@ const props = defineProps<{
     }>;
 }>();
 
+const fallbackTypes: LiabilityTypeOption[] = [
+    {
+        value: 'credit_card',
+        label: 'Credit Card',
+        color: '#EF4444',
+        description: '',
+    },
+    {
+        value: 'personal_loan',
+        label: 'Personal Loan',
+        color: '#F97316',
+        description: '',
+    },
+    {
+        value: 'installment',
+        label: 'Installment / Cicilan',
+        color: '#8B5CF6',
+        description: '',
+    },
+    {
+        value: 'other_debt',
+        label: 'Other Debt',
+        color: '#64748B',
+        description: '',
+    },
+];
+
+const typeOptions = computed(() => {
+    const source = props.liabilityTypes?.length
+        ? props.liabilityTypes
+        : fallbackTypes;
+
+    return source.map((item) => ({
+        ...item,
+        meta: getLiabilityTypeMeta(item.value),
+    }));
+});
+
 const form = useForm({
-    type: 'credit_card',
+    type: typeOptions.value[0]?.value || 'credit_card',
     name: '',
     currency: 'IDR',
     initial_balance: null as number | null,
     current_balance: null as number | null,
     credit_limit: null as number | null,
-    interest_rate: undefined as number | undefined,
+    interest_rate: '' as number | string,
     minimum_payment: null as number | null,
-    due_date_day: undefined as number | undefined,
+    due_date_day: '' as number | string,
     start_date: '',
     end_date: '',
-    remaining_terms: undefined as number | undefined,
+    remaining_terms: '' as number | string,
     notes: '',
 });
 
-const selectedType = computed(() => {
-    return (
-        props.liabilityTypes.find((t) => t.value === form.type) ||
-        props.liabilityTypes[0]
-    );
+const selectedMeta = computed(() => getLiabilityTypeMeta(form.type));
+const isCreditCard = computed(() => form.type === 'credit_card');
+
+const effectiveCurrentBalance = computed(
+    () => form.current_balance ?? form.initial_balance ?? 0,
+);
+
+const previewUtilization = computed(() =>
+    getCreditUtilization(effectiveCurrentBalance.value, form.credit_limit),
+);
+
+const previewAvailableCredit = computed(() => {
+    if (!form.credit_limit) {
+        return 0;
+    }
+
+    return Math.max(0, form.credit_limit - effectiveCurrentBalance.value);
 });
 
-const getTypeIcon = (type: string) => {
-    switch (type) {
-        case 'credit_card':
-            return CreditCard;
-        case 'personal_loan':
-            return Banknote;
-        case 'installment':
-            return Calendar;
-        default:
-            return Receipt;
-    }
-};
+const previewPaidPct = computed(() =>
+    getPayoffProgress(form.initial_balance, effectiveCurrentBalance.value),
+);
 
-const selectType = (typeValue: string) => {
-    form.type = typeValue;
+const parseOptionalNumber = (val: number | string | null | undefined) => {
+    if (val === '' || val === null || val === undefined) {
+        return null;
+    }
+
+    const parsed = Number(val);
+
+    return Number.isFinite(parsed) ? parsed : null;
 };
 
 const submit = () => {
-    // If current_balance is null, sync it with initial_balance
-    if (form.current_balance === null && form.initial_balance !== null) {
-        form.current_balance = form.initial_balance;
-    }
+    form.transform((data) => {
+        const initial = data.initial_balance ?? 0;
+        const current = data.current_balance ?? initial;
 
-    form.post('/liabilities');
+        return {
+            ...data,
+            initial_balance: initial,
+            current_balance: current,
+            credit_limit: isCreditCard.value ? data.credit_limit : null,
+            interest_rate: isCreditCard.value
+                ? null
+                : parseOptionalNumber(data.interest_rate),
+            remaining_terms: isCreditCard.value
+                ? null
+                : parseOptionalNumber(data.remaining_terms),
+            due_date_day: parseOptionalNumber(data.due_date_day),
+            start_date: isCreditCard.value ? null : data.start_date || null,
+            end_date: isCreditCard.value ? null : data.end_date || null,
+        };
+    }).post('/liabilities');
 };
 </script>
 
 <template>
-    <Head title="Add New Liability" />
+    <Head title="Tambah Utang Baru" />
 
     <div
-        class="mx-auto flex h-full w-full max-w-4xl flex-1 flex-col gap-6 p-4 md:p-6 lg:p-8"
+        class="mx-auto flex h-full w-full max-w-3xl flex-1 flex-col gap-4 p-4 md:p-6 lg:gap-5 lg:p-8"
     >
         <!-- Header -->
-        <div class="flex flex-col gap-1">
+        <div class="flex items-start gap-3">
             <Link
                 href="/liabilities"
-                class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Kembali ke daftar utang"
+                class="mt-0.5 inline-flex size-11 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:size-9"
             >
-                <ArrowLeft class="h-3.5 w-3.5" />
-                Back to Liabilities
+                <ArrowLeft class="size-4" aria-hidden="true" />
             </Link>
-            <h1 class="text-3xl font-bold tracking-tight">Add New Liability</h1>
-            <p class="text-sm text-muted-foreground">
-                Register a credit card, loan, or installment plan to include in
-                your financial balance.
-            </p>
+            <div class="min-w-0">
+                <h1 class="text-2xl font-semibold tracking-tight text-balance">
+                    Tambah Utang Baru
+                </h1>
+                <p class="mt-0.5 text-sm text-pretty text-muted-foreground">
+                    Catat kartu kredit, pinjaman, atau cicilan agar saldo dan
+                    jadwal pembayaran Anda terpantau jelas.
+                </p>
+            </div>
         </div>
 
-        <form @submit.prevent="submit" class="space-y-6">
-            <!-- Step 1: Select Type -->
-            <div class="rounded-2xl border bg-card p-6 shadow-sm">
-                <span
-                    class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-                >
-                    1. Select Liability Type
-                </span>
-
-                <div
-                    class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4"
-                >
-                    <button
-                        v-for="item in liabilityTypes"
-                        :key="item.value"
-                        type="button"
-                        :class="[
-                            'group flex flex-col items-center justify-center gap-2.5 rounded-xl border p-4 text-center transition-all',
-                            form.type === item.value
-                                ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/20'
-                                : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/30',
-                        ]"
-                        @click="selectType(item.value)"
-                    >
-                        <div
-                            :class="[
-                                'flex h-11 w-11 items-center justify-center rounded-xl transition-colors',
-                                form.type === item.value
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted text-muted-foreground group-hover:text-foreground',
-                            ]"
-                        >
-                            <component
-                                :is="getTypeIcon(item.value)"
-                                class="h-5 w-5"
-                            />
-                        </div>
-                        <div>
-                            <span
-                                class="block text-xs font-bold text-foreground"
-                            >
-                                {{ item.label }}
-                            </span>
-                            <span
-                                class="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground"
-                            >
-                                {{ item.description }}
-                            </span>
-                        </div>
-                    </button>
+        <!-- Form Card -->
+        <form
+            @submit.prevent="submit"
+            class="divide-y rounded-xl border bg-card"
+        >
+            <!-- Section 1: Jenis & Identitas -->
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <h2 class="text-sm font-semibold text-foreground">
+                        Jenis &amp; Identitas Kewajiban
+                    </h2>
+                    <p class="mt-0.5 text-xs text-pretty text-muted-foreground">
+                        Pilih kategori utang untuk menampilkan kolom limit,
+                        tenor, atau bunga yang relevan.
+                    </p>
                 </div>
-                <InputError :message="form.errors.type" class="mt-2" />
-            </div>
 
-            <!-- Step 2: Details -->
-            <div class="space-y-4 rounded-2xl border bg-card p-6 shadow-sm">
-                <span
-                    class="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-                >
-                    2. Liability Information
-                </span>
+                <!-- Choice Cards using semantic radio inputs + :has(:checked) -->
+                <fieldset>
+                    <legend class="mb-2 text-sm font-medium text-foreground">
+                        Kategori Kewajiban
+                    </legend>
+                    <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                        <label
+                            v-for="opt in typeOptions"
+                            :key="opt.value"
+                            class="relative flex min-h-[84px] cursor-pointer flex-col items-start justify-between rounded-xl border border-border bg-background p-3 transition-colors hover:bg-accent/50 has-[:checked]:border-primary has-[:checked]:bg-primary/[0.04] has-[:checked]:ring-1 has-[:checked]:ring-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/40"
+                        >
+                            <input
+                                v-model="form.type"
+                                type="radio"
+                                name="liability_type"
+                                :value="opt.value"
+                                class="sr-only"
+                            />
+                            <div
+                                class="flex w-full items-center justify-between gap-2"
+                            >
+                                <span
+                                    class="flex size-8 items-center justify-center rounded-lg"
+                                    :style="
+                                        getLiabilityTintStyle(opt.meta.tint)
+                                    "
+                                >
+                                    <component
+                                        :is="opt.meta.icon"
+                                        class="size-4"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                                <span
+                                    v-if="form.type === opt.value"
+                                    class="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                                >
+                                    <Check
+                                        class="size-2.5"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                            </div>
+                            <span
+                                class="mt-2.5 text-xs font-semibold text-foreground sm:text-sm"
+                            >
+                                {{ opt.meta.shortLabel }}
+                            </span>
+                        </label>
+                    </div>
+                    <p
+                        id="liability-type-hint"
+                        class="mt-2 text-xs text-pretty text-muted-foreground"
+                    >
+                        {{ selectedMeta.description }}
+                    </p>
+                    <p
+                        v-if="form.errors.type"
+                        class="mt-1.5 text-xs text-destructive"
+                    >
+                        {{ form.errors.type }}
+                    </p>
+                </fieldset>
 
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <!-- Name -->
-                    <div class="space-y-1.5 sm:col-span-2">
-                        <Label for="name" class="text-xs font-semibold">
-                            Liability Name *
-                        </Label>
-                        <Input
-                            id="name"
+                <!-- Nama & Mata Uang -->
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div class="sm:col-span-2">
+                        <label
+                            for="liability-name"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            Nama Kewajiban / Kartu
+                            <span class="text-destructive">*</span>
+                        </label>
+                        <input
+                            id="liability-name"
                             v-model="form.name"
                             type="text"
-                            placeholder="e.g. BCA Everyday Card, KTA Mandiri, iPhone 16 Cicilan"
                             required
+                            maxlength="100"
+                            :placeholder="selectedMeta.namePlaceholder"
+                            :aria-invalid="Boolean(form.errors.name)"
+                            :aria-describedby="
+                                form.errors.name
+                                    ? 'liability-name-error'
+                                    : undefined
+                            "
+                            class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
                         />
-                        <InputError :message="form.errors.name" />
+                        <p
+                            v-if="form.errors.name"
+                            id="liability-name-error"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.name }}
+                        </p>
                     </div>
 
-                    <!-- Initial Balance -->
-                    <div class="space-y-1.5">
-                        <Label
-                            for="initial_balance"
-                            class="text-xs font-semibold"
+                    <div>
+                        <label
+                            for="liability-currency"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
                         >
-                            Initial / Original Debt *
-                        </Label>
+                            Mata Uang
+                        </label>
+                        <select
+                            id="liability-currency"
+                            v-model="form.currency"
+                            class="min-h-11 w-full rounded-lg border border-input bg-background px-3 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
+                        >
+                            <option
+                                v-for="curr in LIABILITY_CURRENCIES"
+                                :key="curr"
+                                :value="curr"
+                            >
+                                {{ curr }}
+                            </option>
+                        </select>
+                        <p
+                            v-if="form.errors.currency"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.currency }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Saldo & Ketentuan -->
+            <div class="space-y-5 p-5 sm:p-6">
+                <div>
+                    <h2 class="text-sm font-semibold text-foreground">
+                        Saldo &amp; Ketentuan Pembayaran
+                    </h2>
+                    <p class="mt-0.5 text-xs text-pretty text-muted-foreground">
+                        Masukkan nilai pokok awal, sisa tagihan saat ini, serta
+                        rincian limit atau jadwal cicilan.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label
+                            for="liability-initial-balance"
+                            class="mb-1.5 block text-sm font-medium text-foreground"
+                        >
+                            {{
+                                isCreditCard
+                                    ? 'Saldo Tagihan Awal'
+                                    : 'Pokok Utang Awal'
+                            }}
+                            <span class="text-destructive">*</span>
+                        </label>
                         <MoneyInput
-                            id="initial_balance"
+                            id="liability-initial-balance"
                             v-model="form.initial_balance"
+                            :currency="form.currency"
+                            required
                             placeholder="0"
-                            currency="IDR"
                         />
-                        <p class="text-[11px] text-muted-foreground">
-                            Original loan principal or opening card balance
+                        <p class="mt-1.5 text-xs text-muted-foreground">
+                            {{
+                                isCreditCard
+                                    ? 'Total tagihan awal saat pencatatan dimulai.'
+                                    : 'Nilai pinjaman atau total cicilan awal sebelum dibayar.'
+                            }}
                         </p>
-                        <InputError :message="form.errors.initial_balance" />
+                        <p
+                            v-if="form.errors.initial_balance"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.initial_balance }}
+                        </p>
                     </div>
 
-                    <!-- Current Balance -->
-                    <div class="space-y-1.5">
-                        <Label
-                            for="current_balance"
-                            class="text-xs font-semibold"
+                    <div>
+                        <label
+                            for="liability-current-balance"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
                         >
-                            Current Outstanding Balance
-                        </Label>
+                            <span>Sisa Tagihan Saat Ini</span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                            >
+                                Opsional
+                            </span>
+                        </label>
                         <MoneyInput
-                            id="current_balance"
+                            id="liability-current-balance"
                             v-model="form.current_balance"
-                            placeholder="Leave empty if same as initial"
-                            currency="IDR"
+                            :currency="form.currency"
+                            placeholder="Otomatis sama dengan awal"
                         />
-                        <p class="text-[11px] text-muted-foreground">
-                            Defaults to original debt if not filled
+                        <p class="mt-1.5 text-xs text-muted-foreground">
+                            Kosongkan jika sama dengan pokok awal.
                         </p>
-                        <InputError :message="form.errors.current_balance" />
-                    </div>
-
-                    <!-- Credit Card Specifics -->
-                    <template v-if="form.type === 'credit_card'">
-                        <div class="space-y-1.5">
-                            <Label
-                                for="credit_limit"
-                                class="text-xs font-semibold"
-                            >
-                                Credit Limit
-                            </Label>
-                            <MoneyInput
-                                id="credit_limit"
-                                v-model="form.credit_limit"
-                                placeholder="e.g. 20.000.000"
-                                currency="IDR"
-                            />
-                            <InputError :message="form.errors.credit_limit" />
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <Label
-                                for="due_date_day"
-                                class="text-xs font-semibold"
-                            >
-                                Due Date (Day of Month)
-                            </Label>
-                            <Input
-                                id="due_date_day"
-                                v-model.number="form.due_date_day"
-                                type="number"
-                                min="1"
-                                max="31"
-                                placeholder="e.g. 15 or 25"
-                            />
-                            <InputError :message="form.errors.due_date_day" />
-                        </div>
-                    </template>
-
-                    <!-- Minimum Payment -->
-                    <div class="space-y-1.5">
-                        <Label
-                            for="minimum_payment"
-                            class="text-xs font-semibold"
+                        <p
+                            v-if="form.errors.current_balance"
+                            class="mt-1.5 text-xs text-destructive"
                         >
-                            Monthly Minimum / Installment Payment
-                        </Label>
-                        <MoneyInput
-                            id="minimum_payment"
-                            v-model="form.minimum_payment"
-                            placeholder="e.g. 500.000"
-                            currency="IDR"
-                        />
-                        <InputError :message="form.errors.minimum_payment" />
+                            {{ form.errors.current_balance }}
+                        </p>
                     </div>
 
-                    <!-- Interest Rate & Remaining Terms (for loans & installments) -->
-                    <template v-if="form.type !== 'credit_card'">
-                        <div class="space-y-1.5">
-                            <Label
-                                for="remaining_terms"
-                                class="text-xs font-semibold"
+                    <!-- Credit Card Limit -->
+                    <div v-if="isCreditCard">
+                        <label
+                            for="liability-credit-limit"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                        >
+                            <span>Limit Kredit</span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
                             >
-                                Remaining Terms (Months / Cicilan)
-                            </Label>
-                            <Input
-                                id="remaining_terms"
-                                v-model.number="form.remaining_terms"
+                                Opsional
+                            </span>
+                        </label>
+                        <MoneyInput
+                            id="liability-credit-limit"
+                            v-model="form.credit_limit"
+                            :currency="form.currency"
+                            placeholder="cth. 20.000.000"
+                        />
+                        <p
+                            v-if="form.errors.credit_limit"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.credit_limit }}
+                        </p>
+                    </div>
+
+                    <!-- Minimum Payment / Monthly Installment -->
+                    <div>
+                        <label
+                            for="liability-minimum-payment"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                        >
+                            <span>
+                                {{
+                                    isCreditCard
+                                        ? 'Pembayaran Minimum / Bln'
+                                        : 'Cicilan per Bulan'
+                                }}
+                            </span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                            >
+                                Opsional
+                            </span>
+                        </label>
+                        <MoneyInput
+                            id="liability-minimum-payment"
+                            v-model="form.minimum_payment"
+                            :currency="form.currency"
+                            placeholder="cth. 500.000"
+                        />
+                        <p
+                            v-if="form.errors.minimum_payment"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.minimum_payment }}
+                        </p>
+                    </div>
+
+                    <!-- Due Date Day (All Types) -->
+                    <div>
+                        <label
+                            for="liability-due-day"
+                            class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                        >
+                            <span>Tanggal Jatuh Tempo (1–31)</span>
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                            >
+                                Opsional
+                            </span>
+                        </label>
+                        <input
+                            id="liability-due-day"
+                            v-model="form.due_date_day"
+                            type="number"
+                            inputmode="numeric"
+                            min="1"
+                            max="31"
+                            placeholder="cth. 15 atau 25"
+                            :aria-invalid="Boolean(form.errors.due_date_day)"
+                            class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
+                        />
+                        <p
+                            v-if="form.errors.due_date_day"
+                            class="mt-1.5 text-xs text-destructive"
+                        >
+                            {{ form.errors.due_date_day }}
+                        </p>
+                    </div>
+
+                    <!-- Non-Credit-Card Fields -->
+                    <template v-if="!isCreditCard">
+                        <div>
+                            <label
+                                for="liability-remaining-terms"
+                                class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                            >
+                                <span>Sisa Tenor (Bulan)</span>
+                                <span
+                                    class="text-xs font-normal text-muted-foreground"
+                                >
+                                    Opsional
+                                </span>
+                            </label>
+                            <input
+                                id="liability-remaining-terms"
+                                v-model="form.remaining_terms"
                                 type="number"
+                                inputmode="numeric"
                                 min="0"
-                                placeholder="e.g. 12"
+                                placeholder="cth. 12"
+                                :aria-invalid="
+                                    Boolean(form.errors.remaining_terms)
+                                "
+                                class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
                             />
-                            <InputError
-                                :message="form.errors.remaining_terms"
-                            />
+                            <p
+                                v-if="form.errors.remaining_terms"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.remaining_terms }}
+                            </p>
                         </div>
 
-                        <div class="space-y-1.5">
-                            <Label
-                                for="interest_rate"
-                                class="text-xs font-semibold"
+                        <div>
+                            <label
+                                for="liability-interest-rate"
+                                class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
                             >
-                                Annual Interest Rate (%)
-                            </Label>
-                            <Input
-                                id="interest_rate"
-                                v-model.number="form.interest_rate"
+                                <span>Suku Bunga (% per Tahun)</span>
+                                <span
+                                    class="text-xs font-normal text-muted-foreground"
+                                >
+                                    Opsional
+                                </span>
+                            </label>
+                            <input
+                                id="liability-interest-rate"
+                                v-model="form.interest_rate"
                                 type="number"
+                                inputmode="decimal"
                                 step="0.01"
                                 min="0"
                                 max="100"
-                                placeholder="e.g. 12.5"
+                                placeholder="cth. 12.5"
+                                :aria-invalid="
+                                    Boolean(form.errors.interest_rate)
+                                "
+                                class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground tabular-nums placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
                             />
-                            <InputError :message="form.errors.interest_rate" />
+                            <p
+                                v-if="form.errors.interest_rate"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.interest_rate }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                for="liability-start-date"
+                                class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                            >
+                                <span>Tanggal Mulai</span>
+                                <span
+                                    class="text-xs font-normal text-muted-foreground"
+                                >
+                                    Opsional
+                                </span>
+                            </label>
+                            <input
+                                id="liability-start-date"
+                                v-model="form.start_date"
+                                type="date"
+                                class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
+                            />
+                            <p
+                                v-if="form.errors.start_date"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.start_date }}
+                            </p>
+                        </div>
+
+                        <div>
+                            <label
+                                for="liability-end-date"
+                                class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                            >
+                                <span>Target Lunas</span>
+                                <span
+                                    class="text-xs font-normal text-muted-foreground"
+                                >
+                                    Opsional
+                                </span>
+                            </label>
+                            <input
+                                id="liability-end-date"
+                                v-model="form.end_date"
+                                type="date"
+                                class="min-h-11 w-full rounded-lg border border-input bg-background px-3.5 text-base text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:min-h-10 sm:text-sm"
+                            />
+                            <p
+                                v-if="form.errors.end_date"
+                                class="mt-1.5 text-xs text-destructive"
+                            >
+                                {{ form.errors.end_date }}
+                            </p>
                         </div>
                     </template>
+                </div>
 
-                    <!-- Notes -->
-                    <div class="space-y-1.5 sm:col-span-2">
-                        <Label for="notes" class="text-xs font-semibold">
-                            Notes (Optional)
-                        </Label>
-                        <textarea
-                            id="notes"
-                            v-model="form.notes"
-                            rows="2"
-                            placeholder="Add account number, lender details, or payoff strategy..."
-                            class="flex w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
-                        />
-                        <InputError :message="form.errors.notes" />
+                <!-- Live Preview Strip -->
+                <div
+                    class="@container overflow-hidden rounded-xl border bg-border"
+                >
+                    <div class="grid grid-cols-1 gap-px @md:grid-cols-3">
+                        <div class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Sisa Tagihan Tercatat
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold text-rose-600 tabular-nums dark:text-rose-400"
+                            >
+                                <MoneyDisplay
+                                    :amount="effectiveCurrentBalance"
+                                    :currency="form.currency"
+                                />
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="isCreditCard"
+                            class="bg-background px-4 py-3"
+                        >
+                            <p class="text-xs text-muted-foreground">
+                                Rasio Pemakaian Limit
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                            >
+                                {{
+                                    form.credit_limit
+                                        ? `${previewUtilization}%`
+                                        : '—'
+                                }}
+                            </p>
+                        </div>
+                        <div v-else class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Progres Terlunasi
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold text-emerald-600 tabular-nums dark:text-emerald-400"
+                            >
+                                {{ previewPaidPct }}%
+                            </p>
+                        </div>
+
+                        <div
+                            v-if="isCreditCard"
+                            class="bg-background px-4 py-3"
+                        >
+                            <p class="text-xs text-muted-foreground">
+                                Sisa Limit Tersedia
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                            >
+                                <MoneyDisplay
+                                    v-if="form.credit_limit"
+                                    :amount="previewAvailableCredit"
+                                    :currency="form.currency"
+                                />
+                                <template v-else>—</template>
+                            </p>
+                        </div>
+                        <div v-else class="bg-background px-4 py-3">
+                            <p class="text-xs text-muted-foreground">
+                                Cicilan per Bulan
+                            </p>
+                            <p
+                                class="mt-0.5 text-sm font-semibold tabular-nums"
+                            >
+                                <MoneyDisplay
+                                    v-if="form.minimum_payment"
+                                    :amount="form.minimum_payment"
+                                    :currency="form.currency"
+                                />
+                                <template v-else>—</template>
+                            </p>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Catatan -->
+            <div class="space-y-4 p-5 sm:p-6">
+                <div>
+                    <label
+                        for="liability-notes"
+                        class="mb-1.5 flex items-center justify-between text-sm font-medium text-foreground"
+                    >
+                        <span>Catatan</span>
+                        <span class="text-xs font-normal text-muted-foreground">
+                            Opsional
+                        </span>
+                    </label>
+                    <textarea
+                        id="liability-notes"
+                        v-model="form.notes"
+                        rows="3"
+                        maxlength="1000"
+                        placeholder="Tambahkan nomor kontrak, rincian pemberi pinjaman, atau strategi pelunasan..."
+                        class="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none sm:text-sm"
+                    ></textarea>
+                    <p
+                        v-if="form.errors.notes"
+                        class="mt-1.5 text-xs text-destructive"
+                    >
+                        {{ form.errors.notes }}
+                    </p>
                 </div>
             </div>
 
             <!-- Footer Actions -->
-            <div class="flex items-center justify-end gap-3">
-                <Link href="/liabilities">
-                    <Button variant="outline" type="button">Cancel</Button>
+            <div
+                class="flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6"
+            >
+                <Link
+                    href="/liabilities"
+                    class="inline-flex min-h-11 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none sm:min-h-10"
+                >
+                    Batal
                 </Link>
-                <Button type="submit" :disabled="form.processing">
-                    {{ form.processing ? 'Saving...' : 'Save Liability' }}
-                </Button>
+                <button
+                    type="submit"
+                    :disabled="form.processing"
+                    class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 sm:min-h-10"
+                >
+                    <Loader2
+                        v-if="form.processing"
+                        class="size-4 animate-spin"
+                        aria-hidden="true"
+                    />
+                    <Plus v-else class="size-4" aria-hidden="true" />
+                    {{ form.processing ? 'Menyimpan...' : 'Simpan Utang' }}
+                </button>
             </div>
         </form>
     </div>
